@@ -29,4 +29,4 @@ Cloud: Microsoft Azure
 
 ## Architecture 4 Couches
 
-![Schéma d’architecture](./images/Architecture_4_Couches.svg)
+![Schéma d’architecture](docs/images/Architecture_4_Couches.svg)
