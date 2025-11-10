@@ -1,4 +1,5 @@
 🏗️ ARCHITECTURE - Portail Suivi Commandes
+
 📋 Table des Matières
 
 Vue d'ensemble
@@ -25,3 +26,7 @@ Backend: Node.js + Express.js
 Base de données: Azure SQL Database
 Intégration: Salesforce (via REST API + OAuth2)
 Cloud: Microsoft Azure
+
+## Architecture 4 Couches
+
+![Schéma d’architecture](./images/images/Architecture_4_Couches.svg)
