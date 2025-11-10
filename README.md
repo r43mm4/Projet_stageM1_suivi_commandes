@@ -5,9 +5,13 @@
 **Portail web** permettant aux clients de consulter et suivre leurs commandes en temps quasi-réel, avec synchronisation automatique depuis Salesforce.
 
 **Période**: 12 semaines (Septembre - Decembre 2025)  
-**Stagiaire**: Raoul WAFFO 
-**Mentor**: Monsieur Joly  DONFACK
-**Ecole**: IONIS STM
+
+**Stagiaire**: Raoul WAFFO  
+
+**Mentor**: Monsieur Joly  DONFACK  
+
+**Ecole**: IONIS STM  
+
 
 ---
 
@@ -46,7 +50,7 @@
 **Intégration**
 - Salesforce REST API
 - OAuth2 authentication
-- SOQL queries
+- SOQL queriescd
 
 **Cloud & DevOps**
 - Azure App Service
