@@ -1,0 +1,22 @@
+Vue d'Ensemble
+Portail web permettant aux clients de consulter et suivre leurs commandes en temps quasi-réel, avec synchronisation automatique depuis Salesforce.
+Période: 12 semaines (Septembre - Decembre 2025)
+Stagiaire: Raoul WAFFO
+Mentor: Monsieur Joly
+Entreprise: IONIS STM
+
+🎯 Objectifs du Projet
+Problématique
+
+Avant: Clients appellent le service client pour connaître le statut de leurs commandes
+Après: Clients consultent un portail web autonome
+Bénéfice: Réduction estimée de 60% des appels au service client
+
+Fonctionnalités Principales
+
+✅ Consultation des commandes en temps quasi-réel (délai max: 1 heure)
+✅ Recherche par numéro de commande
+✅ Synchronisation automatique avec Salesforce (toutes les heures)
+✅ Modifications de statut (admin)
+✅ Notifications email lors de changements de statut
+✅ Interface responsive (mobile-friendly)
