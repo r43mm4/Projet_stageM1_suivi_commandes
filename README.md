@@ -1,22 +1,56 @@
-Vue d'Ensemble
-Portail web permettant aux clients de consulter et suivre leurs commandes en temps quasi-réel, avec synchronisation automatique depuis Salesforce.
-Période: 12 semaines (Septembre - Decembre 2025)
-Stagiaire: Raoul WAFFO
-Mentor: Monsieur Joly
-Entreprise: IONIS STM
+# 🚀 Portail Suivi Commandes - DigiInfo Stage
 
-🎯 Objectifs du Projet
-Problématique
+## 📋 Vue d'Ensemble
 
-Avant: Clients appellent le service client pour connaître le statut de leurs commandes
-Après: Clients consultent un portail web autonome
-Bénéfice: Réduction estimée de 60% des appels au service client
+**Portail web** permettant aux clients de consulter et suivre leurs commandes en temps quasi-réel, avec synchronisation automatique depuis Salesforce.
 
-Fonctionnalités Principales
+**Période**: 12 semaines (Septembre - Decembre 2025)  
+**Stagiaire**: Raoul WAFFO 
+**Mentor**: Monsieur Joly  DONFACK
+**Ecole**: IONIS STM
 
-✅ Consultation des commandes en temps quasi-réel (délai max: 1 heure)
-✅ Recherche par numéro de commande
-✅ Synchronisation automatique avec Salesforce (toutes les heures)
-✅ Modifications de statut (admin)
-✅ Notifications email lors de changements de statut
-✅ Interface responsive (mobile-friendly)
+---
+
+## 🎯 Objectifs du Projet
+
+### Problématique
+- **Avant**: Clients appellent le service client pour connaître le statut de leurs commandes
+- **Après**: Clients consultent un portail web autonome
+- **Bénéfice**: Réduction estimée de 60% des appels au service client
+
+### Fonctionnalités Principales
+- ✅ Consultation des commandes en temps quasi-réel (délai max: 1 heure)
+- ✅ Recherche par numéro de commande
+- ✅ Synchronisation automatique avec Salesforce (toutes les heures)
+- ✅ Modifications de statut (admin)
+- ✅ Notifications email lors de changements de statut
+- ✅ Interface responsive (mobile-friendly)
+
+---
+
+### Technologies
+
+**Frontend**
+- HTML5, CSS3, JavaScript (Vanilla)
+- Responsive Design (mobile-first)
+
+**Backend**
+- Node.js 18+
+- Express.js 4.x
+- mssql (Azure SQL driver)
+
+**Base de Données**
+- Azure SQL Database
+- 3 tables: Orders, Clients, Notifications
+
+**Intégration**
+- Salesforce REST API
+- OAuth2 authentication
+- SOQL queries
+
+**Cloud & DevOps**
+- Azure App Service
+- GitHub (version control)
+- Postman (API testing)
+
+---
