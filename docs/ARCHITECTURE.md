@@ -1,6 +1,6 @@
-# 🏗️ ARCHITECTURE - Portail Suivi Commandes
+# ARCHITECTURE - Portail Suivi Commandes
 
-## 📋 Table des Matières
+## Table des Matières
 1. [Vue d'ensemble](#vue-densemble)
 2. [Architecture 4 Couches](#architecture-4-couches)
 3. [Flux de Données](#flux-de-données)
@@ -10,7 +10,7 @@
 
 ---
 
-## 🎯 Vue d'ensemble
+## Vue d'ensemble
 
 ### Objectif du Projet
 Créer un **portail web** permettant aux clients de consulter et suivre leurs commandes en temps quasi-réel, avec synchronisation automatique depuis Salesforce.
@@ -29,21 +29,21 @@ Créer un **portail web** permettant aux clients de consulter et suivre leurs co
 
 ---
 
-## 🏛️ Architecture 4 Couches
+## Architecture 4 Couches
 
 ![Schéma d’architecture](images/Architecture_4_Couches.svg)
 
-## 🔄 Flux de Données
+## Flux de Données
 
 ### Flux 1: Création de Commande (Salesforce → Portail)
 
 
 
-## 🤔 Décisions Techniques
+## Décisions Techniques
 
 ### Pourquoi Salesforce + SQL Database (et pas juste Salesforce)?
 
-#### ❌ Option 1: Accès Direct à Salesforce
+#### Option 1: Accès Direct à Salesforce
 ```
 [Portail] ─────→ [Salesforce API]
           chaque requête
@@ -60,7 +60,7 @@ Créer un **portail web** permettant aux clients de consulter et suivre leurs co
 - 1,000 clients × 10 consultations/jour = 10,000 requêtes ✅
 - 10,000 clients × 10 consultations/jour = 100,000 requêtes ⚠️ LIMITE!
 
-#### ✅ Option 2: Cache dans SQL Database (CHOISI)
+#### Option 2: Cache dans SQL Database (CHOISI)
 ```
 [Portail] ─────→ [Azure SQL] ←───── [Salesforce]
           rapide (<50ms)      sync toutes les heures
@@ -74,11 +74,11 @@ Créer un **portail web** permettant aux clients de consulter et suivre leurs co
 
 **Inconvénient:**
 - Délai de 1 heure max entre création Salesforce et affichage portail
-- ✅ **Acceptable pour le business**: Clients n'ont pas besoin de voir en temps réel absolu
+- **Acceptable pour le business**: Clients n'ont pas besoin de voir en temps réel absolu
 
 ### Pourquoi Node.js (et pas PHP/Python)?
 
-| Critère | Node.js ✅ | PHP | Python |
+| Critère | Node.js | PHP | Python |
 |---------|-----------|-----|--------|
 | **Asynchrone** | Oui (natif) | Non (sauf extensions) | Oui (asyncio) |
 | **JSON** | Natif | Bon | Bon |
@@ -90,7 +90,7 @@ Créer un **portail web** permettant aux clients de consulter et suivre leurs co
 
 ### Pourquoi REST API (et pas GraphQL)?
 
-| Critère | REST ✅ | GraphQL |
+| Critère | REST | GraphQL |
 |---------|--------|---------|
 | **Simplicité** | Très simple | Complexe |
 | **Courbe apprentissage** | 1 jour | 1 semaine |
@@ -101,7 +101,7 @@ Créer un **portail web** permettant aux clients de consulter et suivre leurs co
 
 ### Pourquoi Azure (et pas AWS/GCP)?
 
-| Critère | Azure ✅ | AWS | GCP |
+| Critère | Azure | AWS | GCP |
 |---------|---------|-----|-----|
 | **Intégration Salesforce** | Excellente | Bonne | Bonne |
 | **Free Tier** | 12 mois | 12 mois | 90 jours |
@@ -112,11 +112,11 @@ Créer un **portail web** permettant aux clients de consulter et suivre leurs co
 
 ---
 
-## ⚙️ Stratégie de Synchronisation
+## Stratégie de Synchronisation
 
 ### Problème: Comment garder SQL à jour avec Salesforce?
 
-#### Option A: Real-Time (Webhook) ❌
+#### Option A: Real-Time (Webhook) 
 ```
 [Salesforce]
      │ Event: Order modified
@@ -128,7 +128,7 @@ Créer un **portail web** permettant aux clients de consulter et suivre leurs co
 - Besoin de sécuriser le webhook
 - Coûteux (Salesforce Platform Events)
 
-#### Option B: Batch Sync Hourly ✅ (CHOISI)
+#### Option B: Batch Sync Hourly (CHOISI)
 ```
 [Backend Scheduler]
      │ Toutes les heures (ex: 10:00, 11:00, 12:00...)
@@ -168,7 +168,7 @@ CREATE UNIQUE INDEX IX_SalesforceId ON Orders(SalesforceId);
 ```
 
 **Résultat:**
-- 1ère sync: INSERT réussit ✅
+- 1ère sync: INSERT réussit 
 - 2ème sync: INSERT échoue (UNIQUE violation), passe à UPDATE ✅
-- Pas de doublons! ✅
+- Pas de doublons! 
 
