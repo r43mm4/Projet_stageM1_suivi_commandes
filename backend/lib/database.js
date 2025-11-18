@@ -39,8 +39,7 @@ const poolPromise = new sql.ConnectionPool(config)
     console.error("   Code:", err.code);
     console.error("");
 
-// ==================== GESTION D'ERREURS ====================
-
+    // ==================== GESTION D'ERREURS ====================
     if (err.code === "ELOGIN") {
       console.error("💡 Erreur de login:");
       console.error("   → Vérifie DB_USER et DB_PASSWORD dans .env");
