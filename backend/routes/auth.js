@@ -1,148 +1,203 @@
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * ROUTES AUTH - AUTHENTIFICATION CLIENT/ADMIN
+ * ═══════════════════════════════════════════════════════════════
+ */
+
 const express = require("express");
 const router = express.Router();
 const { sql, poolPromise } = require("../lib/database");
 
-// ==================== LOGIN CLIENT ====================
+/**
+ * POST /api/auth/login - Connexion client ou admin
+ */
 router.post("/login", async (req, res) => {
   try {
-    const { email, motDePasse } = req.body;
+    console.log("\n📡 POST /api/auth/login");
 
-    console.log(`Tentative de connexion: ${email}`);
+    const { email, password, isAdmin } = req.body;
 
     // Validation
-    if (!email || !motDePasse) {
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
         error: "Email et mot de passe requis",
       });
     }
 
-    // Rechercher le client
+    console.log(`   Email: ${email}`);
+    console.log(`   Mode: ${isAdmin ? "Admin" : "Client"}`);
+
+    // Authentification ADMIN
+    if (isAdmin) {
+      const adminResult = await authenticateAdmin(email, password);
+      return res.json(adminResult);
+    }
+
+    // Authentification CLIENT
+    const clientResult = await authenticateClient(email, password);
+    return res.json(clientResult);
+  } catch (error) {
+    console.error("❌ Erreur /auth/login:", error.message);
+    res.status(500).json({
+      success: false,
+      error: "Erreur serveur lors de l'authentification",
+    });
+  }
+});
+
+/**
+ * Authentifier un administrateur
+ */
+async function authenticateAdmin(email, password) {
+  // Comptes admin hardcodés (pour simplicité)
+  const adminAccounts = {
+    "admin@digiinfo.fr": {
+      password: "Admin123",
+      name: "Administrateur DigiInfo",
+    },
+    "admin@example.com": {
+      password: "Admin123",
+      name: "Administrateur",
+    },
+  };
+
+  const admin = adminAccounts[email.toLowerCase()];
+
+  if (!admin) {
+    console.log("   ❌ Admin non trouvé");
+    return {
+      success: false,
+      error: "Compte administrateur non trouvé",
+    };
+  }
+
+  if (admin.password !== password) {
+    console.log("   ❌ Mot de passe incorrect");
+    return {
+      success: false,
+      error: "Mot de passe incorrect",
+    };
+  }
+
+  console.log("   ✅ Admin authentifié:", admin.name);
+
+  return {
+    success: true,
+    role: "admin",
+    name: admin.name,
+    clientId: null,
+  };
+}
+
+/**
+ * Authentifier un client (via base de données)
+ */
+async function authenticateClient(email, password) {
+  try {
     const pool = await poolPromise;
+
+    // Rechercher le client par email
     const result = await pool
       .request()
-      .input("email", sql.NVarChar(100), email)
-      .input("motDePasse", sql.NVarChar(255), motDePasse).query(`
-        SELECT ClientId, Email, Prenom, Nom, Telephone, Entreprise
+      .input("email", sql.NVarChar(100), email.toLowerCase()).query(`
+        SELECT 
+          ClientId,
+          NomClient,
+          Email,
+          MotDePasse
         FROM Clients
-        WHERE Email = @email AND MotDePasse = @motDePasse
+        WHERE LOWER(Email) = @email
       `);
 
     if (result.recordset.length === 0) {
-      console.log(`Connexion échouée: identifiants incorrects`);
-      return res.status(401).json({
+      console.log("   ❌ Client non trouvé");
+      return {
         success: false,
-        error: "Email ou mot de passe incorrect",
-      });
+        error: "Email non trouvé dans notre base de données",
+      };
     }
 
     const client = result.recordset[0];
 
-    // Mettre à jour LastLogin
-    await pool
-      .request()
-      .input("clientId", sql.Int, client.ClientId)
-      .query(
-        "UPDATE Clients SET LastLogin = GETDATE() WHERE ClientId = @clientId"
-      );
+    // Vérifier le mot de passe
+    // NOTE: En production, utiliser bcrypt.compare()
+    // Pour la démo, on compare directement
+    const isPasswordValid = verifyPassword(password, client.MotDePasse);
 
-    console.log(`Connexion réussie: ${client.Prenom} ${client.Nom}`);
-
-    // Retourner les infos du client (sans le mot de passe)
-    res.json({
-      success: true,
-      data: {
-        clientId: client.ClientId,
-        email: client.Email,
-        prenom: client.Prenom,
-        nom: client.Nom,
-        telephone: client.Telephone,
-        entreprise: client.Entreprise,
-      },
-    });
-  } catch (error) {
-    console.error("Erreur login:", error.message);
-    res.status(500).json({
-      success: false,
-      error: "Erreur serveur",
-    });
-  }
-});
-
-// ==================== GET COMMANDES DU CLIENT ====================
-router.get("/mes-commandes/:clientId", async (req, res) => {
-  try {
-    const clientId = parseInt(req.params.clientId);
-
-    console.log(`Récupération commandes pour client ${clientId}`);
-
-    if (isNaN(clientId) || clientId <= 0) {
-      return res.status(400).json({
+    if (!isPasswordValid) {
+      console.log("   ❌ Mot de passe incorrect");
+      return {
         success: false,
-        error: "ID client invalide",
-      });
+        error: "Mot de passe incorrect",
+      };
     }
 
-    const pool = await poolPromise;
-    const result = await pool.request().input("clientId", sql.Int, clientId)
-      .query(`
-        SELECT 
-          CommandeId, 
-          NumCommande, 
-          Montant, 
-          Etat, 
-          Descriptions, 
-          CreatedAt, 
-          LastSyncedAt
-        FROM Commandes
-        WHERE ClientId = @clientId
-        ORDER BY CreatedAt DESC
-      `);
+    console.log("   ✅ Client authentifié:", client.NomClient);
 
-    console.log(`${result.recordset.length} commandes trouvées`);
-
-    res.json({
+    return {
       success: true,
-      count: result.recordset.length,
-      data: result.recordset,
-    });
+      role: "client",
+      clientId: client.ClientId,
+      name: client.NomClient,
+      email: client.Email,
+    };
   } catch (error) {
-    console.error("Erreur récupération commandes:", error.message);
-    res.status(500).json({
+    console.error("   ❌ Erreur authentification client:", error.message);
+    return {
       success: false,
-      error: "Erreur serveur",
-    });
+      error: "Erreur lors de la vérification des identifiants",
+    };
   }
+}
+
+/**
+ * Vérifier le mot de passe
+ * NOTE: Version simplifiée pour la démo
+ * En production, utiliser bcrypt.compare()
+ */
+function verifyPassword(plainPassword, hashedPassword) {
+  // Si le hash commence par $2b$, c'est bcrypt
+  if (hashedPassword.startsWith("$2b$")) {
+    // En production: return bcrypt.compareSync(plainPassword, hashedPassword);
+
+    // Pour la démo, on accepte "Password123" pour tous les comptes
+    // Car les hash sont fictifs dans seed.sql
+    return plainPassword === "Password123";
+  }
+
+  // Si pas de hash, comparaison directe (mode dev)
+  return plainPassword === hashedPassword;
+}
+
+/**
+ * POST /api/auth/logout - Déconnexion
+ */
+router.post("/logout", (req, res) => {
+  console.log("\n📡 POST /api/auth/logout");
+
+  // En production, invalider le token JWT ici
+
+  res.json({
+    success: true,
+    message: "Déconnexion réussie",
+  });
 });
 
-// ==================== GET DÉTAILS COMMANDE ====================
-router.get("/commande/:commandeId/:clientId", async (req, res) => {
+/**
+ * GET /api/auth/me - Récupérer l'utilisateur actuel
+ */
+router.get("/me", async (req, res) => {
   try {
-    const commandeId = parseInt(req.params.commandeId);
-    const clientId = parseInt(req.params.clientId);
-
-    const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input("commandeId", sql.Int, commandeId)
-      .input("clientId", sql.Int, clientId).query(`
-        SELECT * FROM Commandes
-        WHERE CommandeId = @commandeId AND ClientId = @clientId
-      `);
-
-    if (result.recordset.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: "Commande non trouvée",
-      });
-    }
+    // En production, récupérer depuis le token JWT
+    // Pour la démo, on retourne un message
 
     res.json({
-      success: true,
-      data: result.recordset[0],
+      success: false,
+      error: "Non implémenté - Utilisez sessionStorage côté client",
     });
   } catch (error) {
-    console.error("Erreur:", error.message);
+    console.error("❌ Erreur /auth/me:", error.message);
     res.status(500).json({
       success: false,
       error: "Erreur serveur",

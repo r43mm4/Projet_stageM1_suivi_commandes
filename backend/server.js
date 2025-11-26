@@ -1,43 +1,49 @@
-require("dotenv").config();
+// backend/server.js
+// ============================================
+// IMPORTANT: Cette ligne DOIT être LA PREMIÈRE
+// ============================================
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
+
+// Maintenant les autres imports
 const express = require("express");
 const cors = require("cors");
 
 const app = express();
 
-// ==================== MIDDLEWARE ====================
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// ==================== ROUTES ====================
-const commandesRouter = require("./routes/commandes");
-app.use("/api/commandes", commandesRouter);
+// Routes
+const commandesRoutes = require("./routes/commandes");
+app.use("/api", commandesRoutes);
 
-// Route santé
+const authRoutes = require("./routes/auth");
+app.use("/api/auth", authRoutes);
+
+// Health check
 app.get("/api/health", (req, res) => {
   res.json({
     status: "OK",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    environment: process.env.NODE_ENV || "development",
   });
 });
 
-// Route racine
-app.get("/", (req, res) => {
-  res.send(
-    '<h1>API Portail Suivi Commandes</h1><p>Endpoints disponibles: <a href="/api/health">/api/health</a>, <a href="/api/commandes">/api/commandes</a></p>'
-  );
-});
-
-// ==================== START SERVER ====================
+// Démarrer le serveur
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`\n🚀 Serveur démarré sur le port ${PORT}`);
-  console.log(`📍 URL: http://localhost:${PORT}`);
-  console.log(`\n📋 Endpoints disponibles:`);
-  console.log(`   GET    /api/health              - Health check`);
-  console.log(`   GET    /api/commandes           - Liste des commandes`);
-  console.log(`   GET    /api/commandes/:id       - Détail d'une commande`);
-  console.log(`   POST   /api/commandes           - Créer une commande`);
-  console.log(`   PUT    /api/commandes/:id/status - Modifier le statut`);
-  console.log(`   DELETE /api/commandes/:id       - Supprimer une commande\n`);
+  console.log(`✅ Serveur démarré sur le port ${PORT}`);
+  console.log(`📍 http://localhost:${PORT}`);
+  console.log(`🔧 Environnement: ${process.env.NODE_ENV || "development"}`);
+
+  // Vérifier que les variables d'environnement sont chargées
+  if (process.env.SF_CLIENT_ID) {
+    console.log("✅ Variables Salesforce chargées");
+  } else {
+    console.error("❌ ERREUR: Variables Salesforce NON chargées!");
+    console.error("→ Vérifiez que le fichier .env existe dans backend/");
+  }
 });

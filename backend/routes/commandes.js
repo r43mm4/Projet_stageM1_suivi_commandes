@@ -1,107 +1,225 @@
-// ==================== IMPORTS ====================
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * ROUTES API - COMMANDES
+ * ═══════════════════════════════════════════════════════════════
+ */
+
 const express = require("express");
 const router = express.Router();
 const { sql, poolPromise } = require("../lib/database");
+const syncService = require("../services/syncService");
 
-// ==================== GET /api/commandes - LISTE TOUTES LES COMMANDES ====================
-router.get("/", async (req, res) => {
+// ═══════════════════════════════════════════════════════════════
+// ROUTES SPÉCIFIQUES (DOIVENT ÊTRE AVANT LES ROUTES DYNAMIQUES)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * POST /api/admin/sync - Synchronisation manuelle (Story 4.4)
+ */
+router.post("/admin/sync", async (req, res) => {
   try {
-    console.log("📥 GET /api/commandes appelé");
+    console.log("\n📡 Endpoint /admin/sync appelé");
 
-    // Récupérer les paramètres de query
-    const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 20, 100); // Max 100
-    const offset = (page - 1) * limit;
-    const status = req.query.status; // Filtrage par statut (optionnel)
-    const search = req.query.search; // Recherche par numéro (optionnel)
+    const result = await syncService.syncWithRetry(3);
 
-    console.log(
-      `   Page: ${page}, Limit: ${limit}, Status: ${
-        status || "tous"
-      }, Search: ${search || "aucun"}`
-    );
-
-    // Connexion à la base de données
-    const pool = await poolPromise;
-    const request = pool.request();
-
-    // Construire la query SQL dynamiquement
-    let whereClause = "";
-    let params = [];
-
-    // Filtre par statut
-    if (status) {
-      whereClause = "WHERE Etat = @status";
-      request.input("status", sql.NVarChar(50), status);
-    }
-
-    // Filtre par recherche (numéro de commande)
-    if (search) {
-      whereClause = whereClause
-        ? `${whereClause} AND NumCommande LIKE @search`
-        : "WHERE NumCommande LIKE @search";
-      request.input("search", sql.NVarChar(20), `%${search}%`);
-    }
-
-    // Query SQL avec pagination
-    const query = `
-      SELECT * FROM Commandes
-      ${whereClause}
-      ORDER BY CreatedAt DESC
-      OFFSET @offset ROWS
-      FETCH NEXT @limit ROWS ONLY
-    `;
-
-    // Ajouter les paramètres de pagination
-    request.input("offset", sql.Int, offset);
-    request.input("limit", sql.Int, limit);
-
-    // Exécuter la query
-    const result = await request.query(query);
-
-    // Compter le total (pour la pagination)
-    const countRequest = pool.request();
-    if (status) countRequest.input("status", sql.NVarChar(50), status);
-    if (search) countRequest.input("search", sql.NVarChar(20), `%${search}%`);
-
-    const countQuery = `SELECT COUNT(*) AS Total FROM Commandes ${whereClause}`;
-    const countResult = await countRequest.query(countQuery);
-    const total = countResult.recordset[0].Total;
-
-    console.log(
-      `   ✅ ${result.recordset.length} commandes récupérées (Total: ${total})`
-    );
-
-    // Réponse JSON
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
-      page: page,
-      limit: limit,
-      total: total,
-      totalPages: Math.ceil(total / limit),
-      count: result.recordset.length,
-      data: result.recordset,
+      data: result,
     });
   } catch (error) {
-    console.error("❌ Erreur GET /api/commandes:", error.message);
+    console.error("❌ Erreur /admin/sync:", error.message);
     res.status(500).json({
       success: false,
       timestamp: new Date().toISOString(),
-      error: "Erreur lors de la récupération des commandes",
-      message: error.message,
+      error: error.message,
     });
   }
 });
 
-// ==================== GET /api/commandes/:id - UNE COMMANDE SPÉCIFIQUE ====================
-router.get("/:id", async (req, res) => {
+/**
+ * GET /api/admin/stats - Statistiques de synchronisation
+ */
+router.get("/admin/stats", (req, res) => {
+  try {
+    const stats = syncService.getStats();
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      data: stats,
+    });
+  } catch (error) {
+    console.error("❌ Erreur /admin/stats:", error.message);
+    res.status(500).json({
+      success: false,
+      timestamp: new Date().toISOString(),
+      error: error.message,
+    });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ROUTES CRUD COMMANDES
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * GET /api/commandes - Récupérer toutes les commandes
+ */
+router.get("/commandes", async (req, res) => {
+  try {
+    console.log("\n📡 GET /api/commandes appelé");
+
+    const pool = await poolPromise;
+
+    // Paramètres de pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const offset = (page - 1) * limit;
+
+    // Filtres
+    const whereClauses = [];
+    const params = [];
+
+    // Filtre par client (IMPORTANT pour l'espace client)
+    if (req.query.clientId) {
+      whereClauses.push("c.ClientId = @clientId");
+      params.push({
+        name: "clientId",
+        type: sql.Int,
+        value: parseInt(req.query.clientId),
+      });
+      console.log(`   Filtre client: ${req.query.clientId}`);
+    }
+
+    // Filtre par état
+    if (req.query.etat) {
+      whereClauses.push("c.Etat = @etat");
+      params.push({
+        name: "etat",
+        type: sql.NVarChar(50),
+        value: req.query.etat,
+      });
+    }
+
+    const whereClause =
+      whereClauses.length > 0 ? "WHERE " + whereClauses.join(" AND ") : "";
+
+    // Requête principale
+    const query = `
+      SELECT 
+        c.CommandeId,
+        c.NumCommande,
+        c.MontantTotal,
+        c.Etat,
+        c.Descriptions,
+        c.DateCommande,
+        c.DerniereSynchro,
+        c.SalesforceId,
+        cl.NomClient,
+        cl.Email
+      FROM Commandes c
+      LEFT JOIN Clients cl ON c.ClientId = cl.ClientId
+      ${whereClause}
+      ORDER BY c.DateCommande DESC
+      OFFSET @offset ROWS
+      FETCH NEXT @limit ROWS ONLY
+    `;
+
+    const request = pool.request();
+    request.input("offset", sql.Int, offset);
+    request.input("limit", sql.Int, limit);
+    params.forEach((p) => request.input(p.name, p.type, p.value));
+
+    const result = await request.query(query);
+
+    // Compter le total
+    const countQuery = `SELECT COUNT(*) AS Total FROM Commandes ${whereClause}`;
+    const countRequest = pool.request();
+    params.forEach((p) => countRequest.input(p.name, p.type, p.value));
+    const countResult = await countRequest.query(countQuery);
+    const total = countResult.recordset[0].Total;
+
+    console.log(
+      `✅ ${result.recordset.length} commandes retournées (page ${page})`
+    );
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      data: result.recordset,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("❌ Erreur GET /commandes:", error.message);
+    res.status(500).json({
+      success: false,
+      timestamp: new Date().toISOString(),
+      error: "Erreur lors de la récupération des commandes",
+    });
+  }
+});
+
+/**
+ * GET /api/commandes/stats - Statistiques des commandes
+ */
+router.get("/commandes/stats", async (req, res) => {
+  try {
+    console.log("\n📡 GET /api/commandes/stats appelé");
+
+    const pool = await poolPromise;
+
+    const result = await pool.request().query(`
+      SELECT 
+        COUNT(*) AS Total,
+        SUM(CASE WHEN Etat = 'En préparation' THEN 1 ELSE 0 END) AS EnPreparation,
+        SUM(CASE WHEN Etat = 'Expédié' THEN 1 ELSE 0 END) AS Expedie,
+        SUM(CASE WHEN Etat = 'Livré' THEN 1 ELSE 0 END) AS Livre,
+        SUM(CASE WHEN Etat = 'Annulé' THEN 1 ELSE 0 END) AS Annule,
+        SUM(MontantTotal) AS MontantTotal,
+        AVG(MontantTotal) AS MontantMoyen
+      FROM Commandes
+    `);
+
+    const stats = result.recordset[0];
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      data: {
+        total: stats.Total,
+        parEtat: {
+          "En préparation": stats.EnPreparation,
+          Expédié: stats.Expedie,
+          Livré: stats.Livre,
+          Annulé: stats.Annule,
+        },
+        montantTotal: stats.MontantTotal,
+        montantMoyen: stats.MontantMoyen,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Erreur GET /commandes/stats:", error.message);
+    res.status(500).json({
+      success: false,
+      timestamp: new Date().toISOString(),
+      error: "Erreur lors de la récupération des statistiques",
+    });
+  }
+});
+
+/**
+ * GET /api/commandes/:id - Récupérer une commande par ID
+ */
+router.get("/commandes/:id", async (req, res) => {
   try {
     const commandeId = parseInt(req.params.id);
 
-    console.log(`📥 GET /api/commandes/${commandeId} appelé`);
-
-    // Validation de l'ID
     if (isNaN(commandeId) || commandeId <= 0) {
       return res.status(400).json({
         success: false,
@@ -110,16 +228,31 @@ router.get("/:id", async (req, res) => {
       });
     }
 
-    // Connexion à la base de données
-    const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input("id", sql.Int, commandeId)
-      .query("SELECT * FROM Commandes WHERE CommandeId = @id");
+    console.log(`\n📡 GET /api/commandes/${commandeId} appelé`);
 
-    // Vérifier si la commande existe
+    const pool = await poolPromise;
+
+    const result = await pool.request().input("commandeId", sql.Int, commandeId)
+      .query(`
+        SELECT 
+          c.CommandeId,
+          c.NumCommande,
+          c.MontantTotal,
+          c.Etat,
+          c.Descriptions,
+          c.DateCommande,
+          c.DerniereSynchro,
+          c.SalesforceId,
+          cl.NomClient,
+          cl.Email,
+          cl.Telephone,
+          cl.Adresse
+        FROM Commandes c
+        LEFT JOIN Clients cl ON c.ClientId = cl.ClientId
+        WHERE c.CommandeId = @commandeId
+      `);
+
     if (result.recordset.length === 0) {
-      console.log(`   ⚠️  Commande ${commandeId} non trouvée`);
       return res.status(404).json({
         success: false,
         timestamp: new Date().toISOString(),
@@ -127,95 +260,80 @@ router.get("/:id", async (req, res) => {
       });
     }
 
-    console.log(`   ✅ Commande ${commandeId} trouvée`);
+    console.log(`✅ Commande ${commandeId} trouvée`);
 
-    // Réponse JSON
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
       data: result.recordset[0],
     });
   } catch (error) {
-    console.error("❌ Erreur GET /api/commandes/:id:", error.message);
+    console.error("❌ Erreur GET /commandes/:id:", error.message);
     res.status(500).json({
       success: false,
       timestamp: new Date().toISOString(),
       error: "Erreur lors de la récupération de la commande",
-      message: error.message,
     });
   }
 });
 
-// ==================== POST /api/commandes - CRÉER UNE NOUVELLE COMMANDE ====================
-router.post("/", async (req, res) => {
+/**
+ * POST /api/commandes - Créer une nouvelle commande
+ */
+router.post("/commandes", async (req, res) => {
   try {
-    console.log("📥 POST /api/commandes appelé");
-    console.log("   Body:", req.body);
+    console.log("\n📡 POST /api/commandes appelé");
 
-    // Extraction des données
-    const { NumCommande, Montant, Etat, Descriptions } = req.body;
+    const { NumCommande, ClientId, MontantTotal, Etat, Descriptions } =
+      req.body;
 
-    // Validation des champs requis
+    // Validation
     const errors = {};
+    if (!NumCommande) errors.NumCommande = "Numéro de commande requis";
+    if (!ClientId) errors.ClientId = "Client requis";
+    if (!MontantTotal || MontantTotal <= 0)
+      errors.MontantTotal = "Montant invalide";
+    if (!Etat) errors.Etat = "État requis";
 
-    if (!NumCommande || NumCommande.length < 3) {
-      errors.NumCommande =
-        "Le numéro de commande doit contenir au moins 3 caractères";
-    }
-
-    if (!Montant || Montant <= 0) {
-      errors.Montant = "Le montant doit être supérieur à 0";
-    }
-
-    const validStatuses = ["En préparation", "Expédié", "Livré", "Annulé"];
-    if (!Etat || !validStatuses.includes(Etat)) {
-      errors.Etat = `L'état doit être: ${validStatuses.join(", ")}`;
-    }
-
-    // Si des erreurs de validation
     if (Object.keys(errors).length > 0) {
-      console.log("   ❌ Erreurs de validation:", errors);
       return res.status(400).json({
         success: false,
         timestamp: new Date().toISOString(),
-        errors: errors,
+        errors,
       });
     }
 
-    // Connexion à la base de données
     const pool = await poolPromise;
 
-    // Insérer la commande
     const result = await pool
       .request()
-      .input("salesforceId", sql.NVarChar(50), `MANUAL-${Date.now()}`) // ID temporaire
-      .input("numCmd", sql.NVarChar(20), NumCommande)
-      .input("montant", sql.Decimal(10, 2), Montant)
+      .input("numCommande", sql.NVarChar(20), NumCommande)
+      .input("clientId", sql.Int, ClientId)
+      .input("montantTotal", sql.Decimal(10, 2), MontantTotal)
       .input("etat", sql.NVarChar(50), Etat)
-      .input("desc", sql.NVarChar(500), Descriptions || null).query(`
-        INSERT INTO Commandes (SalesforceId, NumCommande, Montant, Etat, Descriptions, CreatedAt, LastSyncedAt)
+      .input("descriptions", sql.NVarChar(500), Descriptions || null).query(`
+        INSERT INTO Commandes (
+          NumCommande, ClientId, MontantTotal, Etat, Descriptions, 
+          DateCommande, CreePar
+        )
         OUTPUT INSERTED.*
-        VALUES (@salesforceId, @numCmd, @montant, @etat, @desc, GETDATE(), GETDATE())
+        VALUES (
+          @numCommande, @clientId, @montantTotal, @etat, @descriptions,
+          GETDATE(), 'API'
+        )
       `);
 
-    const nouvelleCommande = result.recordset[0];
+    console.log(`✅ Commande créée: ${NumCommande}`);
 
-    console.log(
-      `   ✅ Commande créée: ${nouvelleCommande.CommandeId} - ${nouvelleCommande.NumCommande}`
-    );
-
-    // Réponse JSON
     res.status(201).json({
       success: true,
       timestamp: new Date().toISOString(),
-      message: "Commande créée avec succès",
-      data: nouvelleCommande,
+      data: result.recordset[0],
     });
   } catch (error) {
-    console.error("❌ Erreur POST /api/commandes:", error.message);
+    console.error("❌ Erreur POST /commandes:", error.message);
 
-    // Erreur de contrainte UNIQUE (numéro de commande déjà existant)
-    if (error.number === 2627 || error.number === 2601) {
+    if (error.number === 2627) {
       return res.status(409).json({
         success: false,
         timestamp: new Date().toISOString(),
@@ -227,152 +345,134 @@ router.post("/", async (req, res) => {
       success: false,
       timestamp: new Date().toISOString(),
       error: "Erreur lors de la création de la commande",
-      message: error.message,
     });
   }
 });
 
-// ==================== PUT /api/commandes/:id/status - MODIFIER LE STATUT ====================
-router.put("/:id/status", async (req, res) => {
+/**
+ * PUT /api/commandes/:id/status - Mettre à jour le statut d'une commande
+ */
+router.put("/commandes/:id/status", async (req, res) => {
   try {
     const commandeId = parseInt(req.params.id);
-    const { newStatus } = req.body;
+    const { nouveauStatut } = req.body;
 
-    console.log(`📥 PUT /api/commandes/${commandeId}/status appelé`);
-    console.log(`   Nouveau statut: ${newStatus}`);
-
-    // Validation de l'ID
     if (isNaN(commandeId) || commandeId <= 0) {
       return res.status(400).json({
         success: false,
+        timestamp: new Date().toISOString(),
         error: "ID de commande invalide",
       });
     }
 
-    // Validation du statut
-    const validStatuses = ["En préparation", "Expédié", "Livré", "Annulé"];
-    if (!newStatus || !validStatuses.includes(newStatus)) {
+    if (!nouveauStatut) {
       return res.status(400).json({
         success: false,
-        error: `Le statut doit être: ${validStatuses.join(", ")}`,
+        timestamp: new Date().toISOString(),
+        error: "Nouveau statut requis",
       });
     }
 
-    // Connexion à la base de données
+    const statutsValides = ["En préparation", "Expédié", "Livré", "Annulé"];
+    if (!statutsValides.includes(nouveauStatut)) {
+      return res.status(400).json({
+        success: false,
+        timestamp: new Date().toISOString(),
+        error: `Statut invalide. Valeurs acceptées: ${statutsValides.join(
+          ", "
+        )}`,
+      });
+    }
+
+    console.log(`\n📡 PUT /api/commandes/${commandeId}/status appelé`);
+    console.log(`   Nouveau statut: ${nouveauStatut}`);
+
     const pool = await poolPromise;
 
-    // Vérifier que la commande existe
-    const checkResult = await pool
+    const result = await pool
       .request()
-      .input("id", sql.Int, commandeId)
-      .query(
-        "SELECT CommandeId, NumCommande, Etat FROM Commandes WHERE CommandeId = @id"
-      );
+      .input("commandeId", sql.Int, commandeId)
+      .input("nouveauStatut", sql.NVarChar(50), nouveauStatut).query(`
+        UPDATE Commandes
+        SET 
+          Etat = @nouveauStatut,
+          DerniereModification = GETDATE(),
+          DerniereModificationPar = 'API'
+        WHERE CommandeId = @commandeId
+      `);
 
-    if (checkResult.recordset.length === 0) {
+    if (result.rowsAffected[0] === 0) {
       return res.status(404).json({
         success: false,
+        timestamp: new Date().toISOString(),
         error: "Commande non trouvée",
       });
     }
 
-    const ancienStatut = checkResult.recordset[0].Etat;
+    console.log(`✅ Statut mis à jour pour commande ${commandeId}`);
 
-    // Mettre à jour le statut
-    await pool
-      .request()
-      .input("id", sql.Int, commandeId)
-      .input("newStatus", sql.NVarChar(50), newStatus).query(`
-        UPDATE Commandes 
-        SET Etat = @newStatus, LastSyncedAt = GETDATE()
-        WHERE CommandeId = @id
-      `);
-
-    console.log(`   ✅ Statut modifié: ${ancienStatut} → ${newStatus}`);
-
-    // Réponse JSON
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
-      message: "Statut modifié avec succès",
-      data: {
-        commandeId: commandeId,
-        ancienStatut: ancienStatut,
-        nouveauStatut: newStatus,
-      },
+      message: "Statut mis à jour avec succès",
     });
   } catch (error) {
-    console.error("❌ Erreur PUT /api/commandes/:id/status:", error.message);
+    console.error("❌ Erreur PUT /commandes/:id/status:", error.message);
     res.status(500).json({
       success: false,
-      error: "Erreur lors de la modification du statut",
-      message: error.message,
+      timestamp: new Date().toISOString(),
+      error: "Erreur lors de la mise à jour du statut",
     });
   }
 });
 
-// ==================== DELETE /api/commandes/:id - SUPPRIMER UNE COMMANDE ====================
-router.delete("/:id", async (req, res) => {
+/**
+ * DELETE /api/commandes/:id - Supprimer une commande
+ */
+router.delete("/commandes/:id", async (req, res) => {
   try {
     const commandeId = parseInt(req.params.id);
 
-    console.log(`📥 DELETE /api/commandes/${commandeId} appelé`);
-
-    // Validation de l'ID
     if (isNaN(commandeId) || commandeId <= 0) {
       return res.status(400).json({
         success: false,
+        timestamp: new Date().toISOString(),
         error: "ID de commande invalide",
       });
     }
 
-    // Connexion à la base de données
+    console.log(`\n📡 DELETE /api/commandes/${commandeId} appelé`);
+
     const pool = await poolPromise;
 
-    // Vérifier que la commande existe
-    const checkResult = await pool
+    const result = await pool
       .request()
-      .input("id", sql.Int, commandeId)
-      .query(
-        "SELECT CommandeId, NumCommande FROM Commandes WHERE CommandeId = @id"
-      );
+      .input("commandeId", sql.Int, commandeId)
+      .query("DELETE FROM Commandes WHERE CommandeId = @commandeId");
 
-    if (checkResult.recordset.length === 0) {
+    if (result.rowsAffected[0] === 0) {
       return res.status(404).json({
         success: false,
+        timestamp: new Date().toISOString(),
         error: "Commande non trouvée",
       });
     }
 
-    const numCommande = checkResult.recordset[0].NumCommande;
+    console.log(`✅ Commande ${commandeId} supprimée`);
 
-    // Supprimer la commande
-    await pool
-      .request()
-      .input("id", sql.Int, commandeId)
-      .query("DELETE FROM Commandes WHERE CommandeId = @id");
-
-    console.log(`   ✅ Commande supprimée: ${commandeId} - ${numCommande}`);
-
-    // Réponse JSON
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
       message: "Commande supprimée avec succès",
-      data: {
-        commandeId: commandeId,
-        numCommande: numCommande,
-      },
     });
   } catch (error) {
-    console.error("❌ Erreur DELETE /api/commandes/:id:", error.message);
+    console.error("❌ Erreur DELETE /commandes/:id:", error.message);
     res.status(500).json({
       success: false,
+      timestamp: new Date().toISOString(),
       error: "Erreur lors de la suppression de la commande",
-      message: error.message,
     });
   }
 });
 
-// ==================== EXPORT ====================
 module.exports = router;
