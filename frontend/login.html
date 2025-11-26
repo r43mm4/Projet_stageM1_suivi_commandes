@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connexion - Portail Commandes</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="login-page">
+    <div class="login-container">
+      <div class="login-card">
+        <div class="login-header">
+          <h1>🛍️ Portail Commandes</h1>
+          <p>Connectez-vous pour accéder à votre espace</p>
+        </div>
+
+        <form id="loginForm" class="login-form">
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              placeholder="votre.email@exemple.com"
+              required
+              autocomplete="email"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="password">Mot de passe</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              placeholder="••••••••"
+              required
+              autocomplete="current-password"
+            />
+          </div>
+
+          <div class="form-group checkbox-group">
+            <label>
+              <input type="checkbox" id="isAdmin" name="isAdmin" />
+              <span>Se connecter en tant qu'administrateur</span>
+            </label>
+          </div>
+
+          <div
+            id="errorMessage"
+            class="error-message"
+            style="display: none"
+          ></div>
+
+          <button type="submit" class="btn btn-primary" id="loginBtn">
+            <span class="btn-text">Se connecter</span>
+            <span class="btn-loading" style="display: none">
+              <span class="spinner"></span>
+              Connexion...
+            </span>
+          </button>
+        </form>
+
+        <div class="login-footer">
+          <p class="demo-info">
+            <strong>🧪 Mode Démo</strong><br />
+            <small>Client: raoul.waffo@gmail.com / pass123</small><br />
+            <small>Admin: admin@example.com / admin123</small>
+          </p>
+        </div>
+      </div>
+
+      <div class="features-banner">
+        <h2>Fonctionnalités</h2>
+        <ul>
+          <li>✅ Suivez vos commandes en temps réel</li>
+          <li>🛒 Créez de nouvelles commandes</li>
+          <li>📦 Consultez l'historique complet</li>
+          <li>🔔 Recevez des notifications</li>
+        </ul>
+      </div>
+    </div>
+
+    <script src="login.js"></script>
+  </body>
+</html>

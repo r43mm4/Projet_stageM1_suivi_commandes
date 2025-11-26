@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Connexion - Diagnostic</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .test-box {
+        background: white;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .success {
+        color: #10b981;
+      }
+      .error {
+        color: #ef4444;
+      }
+      .info {
+        color: #3b82f6;
+      }
+      button {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        background: #5568d3;
+      }
+      pre {
+        background: #1f2937;
+        color: #f3f4f6;
+        padding: 15px;
+        border-radius: 6px;
+        overflow-x: auto;
+      }
+      .result {
+        margin-top: 10px;
+        padding: 10px;
+        background: #f3f4f6;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔍 Diagnostic de connexion</h1>
+
+    <div class="test-box">
+      <h2>📋 Informations système</h2>
+      <div id="systemInfo"></div>
+    </div>
+
+    <div class="test-box">
+      <h2>🧪 Tests de fonctionnalité</h2>
+
+      <h3>Test 1 : SessionStorage</h3>
+      <button onclick="testSessionStorage()">Tester SessionStorage</button>
+      <div id="sessionTest" class="result"></div>
+
+      <h3>Test 2 : Simuler connexion CLIENT</h3>
+      <button onclick="simulateClientLogin()">Connexion Client</button>
+      <div id="clientTest" class="result"></div>
+
+      <h3>Test 3 : Simuler connexion ADMIN</h3>
+      <button onclick="simulateAdminLogin()">Connexion Admin</button>
+      <div id="adminTest" class="result"></div>
+
+      <h3>Test 4 : Vérifier session actuelle</h3>
+      <button onclick="checkCurrentSession()">Vérifier Session</button>
+      <div id="sessionCheck" class="result"></div>
+
+      <h3>Test 5 : Nettoyer session</h3>
+      <button onclick="clearSession()">Effacer Session</button>
+      <div id="clearResult" class="result"></div>
+    </div>
+
+    <div class="test-box">
+      <h2>📁 Structure des fichiers attendue</h2>
+      <pre>
+frontend/
+├── login.html          ← Vous êtes ici
+├── login.js
+├── styles.css          ← Renommer client-styles.css
+├── test-connexion.html ← Ce fichier
+├── client/
+│   ├── dashboard.html
+│   └── dashboard.js
+└── backoffice/
+    ├── admin.html
+    └── admin.js
+        </pre
+      >
+    </div>
+
+    <div class="test-box">
+      <h2>🔗 Liens rapides</h2>
+      <button onclick="window.location.href='login.html'">Aller à Login</button>
+      <button onclick="window.location.href='client/dashboard.html'">
+        Aller au Dashboard Client
+      </button>
+      <button onclick="window.location.href='backoffice/admin.html'">
+        Aller à Admin
+      </button>
+    </div>
+
+    <script>
+      // Afficher les informations système
+      function displaySystemInfo() {
+        const info = {
+          Navigateur: navigator.userAgent,
+          "URL actuelle": window.location.href,
+          "SessionStorage disponible":
+            typeof Storage !== "undefined" ? "✅ Oui" : "❌ Non",
+          "JavaScript activé": "✅ Oui (sinon vous ne verriez pas ceci)",
+        };
+
+        let html = '<table style="width:100%">';
+        for (let [key, value] of Object.entries(info)) {
+          html += `<tr><td><strong>${key}:</strong></td><td>${value}</td></tr>`;
+        }
+        html += "</table>";
+
+        document.getElementById("systemInfo").innerHTML = html;
+      }
+
+      // Test 1: SessionStorage
+      function testSessionStorage() {
+        const result = document.getElementById("sessionTest");
+        try {
+          sessionStorage.setItem("test", "OK");
+          const value = sessionStorage.getItem("test");
+          sessionStorage.removeItem("test");
+
+          if (value === "OK") {
+            result.innerHTML =
+              '<span class="success">✅ SessionStorage fonctionne correctement</span>';
+          } else {
+            result.innerHTML =
+              '<span class="error">❌ SessionStorage ne fonctionne pas correctement</span>';
+          }
+        } catch (e) {
+          result.innerHTML = `<span class="error">❌ Erreur: ${e.message}</span>`;
+        }
+      }
+
+      // Test 2: Simuler connexion client
+      function simulateClientLogin() {
+        const result = document.getElementById("clientTest");
+        try {
+          const user = {
+            email: "raoul.waffo@gmail.com",
+            role: "client",
+            clientId: 1,
+            name: "WAFFO Raoul",
+            loginTime: new Date().toISOString(),
+          };
+
+          sessionStorage.setItem("currentUser", JSON.stringify(user));
+
+          result.innerHTML = `
+                    <span class="success">✅ Session client créée avec succès</span><br>
+                    <pre>${JSON.stringify(user, null, 2)}</pre>
+                    <button onclick="window.location.href='client/dashboard.html'">Aller au Dashboard</button>
+                `;
+        } catch (e) {
+          result.innerHTML = `<span class="error">❌ Erreur: ${e.message}</span>`;
+        }
+      }
+
+      // Test 3: Simuler connexion admin
+      function simulateAdminLogin() {
+        const result = document.getElementById("adminTest");
+        try {
+          const user = {
+            email: "admin@example.com",
+            role: "admin",
+            clientId: null,
+            name: "Administrateur",
+            loginTime: new Date().toISOString(),
+          };
+
+          sessionStorage.setItem("currentUser", JSON.stringify(user));
+
+          result.innerHTML = `
+                    <span class="success">✅ Session admin créée avec succès</span><br>
+                    <pre>${JSON.stringify(user, null, 2)}</pre>
+                    <button onclick="window.location.href='backoffice/admin.html'">Aller au Backoffice</button>
+                `;
+        } catch (e) {
+          result.innerHTML = `<span class="error">❌ Erreur: ${e.message}</span>`;
+        }
+      }
+
+      // Test 4: Vérifier session
+      function checkCurrentSession() {
+        const result = document.getElementById("sessionCheck");
+        try {
+          const userStr = sessionStorage.getItem("currentUser");
+
+          if (userStr) {
+            const user = JSON.parse(userStr);
+            result.innerHTML = `
+                        <span class="success">✅ Session trouvée</span><br>
+                        <pre>${JSON.stringify(user, null, 2)}</pre>
+                        <span class="info">Rôle: ${user.role}</span><br>
+                        ${
+                          user.role === "client"
+                            ? "<button onclick=\"window.location.href='client/dashboard.html'\">Aller au Dashboard</button>"
+                            : "<button onclick=\"window.location.href='backoffice/admin.html'\">Aller au Backoffice</button>"
+                        }
+                    `;
+          } else {
+            result.innerHTML =
+              '<span class="error">❌ Aucune session active</span>';
+          }
+        } catch (e) {
+          result.innerHTML = `<span class="error">❌ Erreur: ${e.message}</span>`;
+        }
+      }
+
+      // Test 5: Nettoyer session
+      function clearSession() {
+        const result = document.getElementById("clearResult");
+        try {
+          sessionStorage.removeItem("currentUser");
+          result.innerHTML =
+            '<span class="success">✅ Session effacée avec succès</span>';
+        } catch (e) {
+          result.innerHTML = `<span class="error">❌ Erreur: ${e.message}</span>`;
+        }
+      }
+
+      // Initialisation
+      window.onload = function () {
+        displaySystemInfo();
+      };
+    </script>
+  </body>
+</html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mon Espace - Portail Commandes</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body class="dashboard-page">
+    <!-- En-tête -->
+    <header class="dashboard-header">
+      <div class="header-content">
+        <div class="header-left">
+          <h1>🛍️ Mon Espace Client</h1>
+          <p id="welcomeMessage">Bienvenue, <span id="userName"></span></p>
+        </div>
+        <div class="header-right">
+          <button class="btn btn-secondary" id="refreshBtn">
+            🔄 Actualiser
+          </button>
+          <button class="btn btn-danger" id="logoutBtn">🚪 Déconnexion</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="dashboard-container">
+      <!-- Statistiques rapides -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Total Commandes</h3>
+          <div class="value" id="totalOrders">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>En cours</h3>
+          <div class="value" id="pendingOrders">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>Livrées</h3>
+          <div class="value" id="deliveredOrders">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>Montant Total</h3>
+          <div class="value" id="totalAmount">0 €</div>
+        </div>
+      </div>
+
+      <!-- Onglets -->
+      <div class="tabs">
+        <button class="tab active" data-tab="orders">📦 Mes Commandes</button>
+        <button class="tab" data-tab="new-order">➕ Nouvelle Commande</button>
+      </div>
+
+      <!-- Contenu: Liste des commandes -->
+      <div id="ordersTab" class="tab-content active">
+        <div class="table-container">
+          <div class="table-header">
+            <h2>Liste de mes commandes</h2>
+            <div class="commandes-section">
+              <h2>Vos Commandes</h2>
+              <div id="commandesList" class="commandes-list">
+                <!-- ID ajouté -->
+                <!-- Populated by JavaScript -->
+              </div>
+            </div>
+            <div class="search-bar">
+              <input
+                type="text"
+                id="searchInput"
+                placeholder="🔍 Rechercher par numéro..."
+              />
+              <select id="statusFilter">
+                <option value="">Tous les statuts</option>
+                <option value="En préparation">En préparation</option>
+                <option value="Expédié">Expédié</option>
+                <option value="Livré">Livré</option>
+                <option value="Annulé">Annulé</option>
+              </select>
+            </div>
+          </div>
+
+          <div
+            id="loadingOrders"
+            style="padding: 40px; text-align: center; color: #6b7280"
+          >
+            <div class="spinner" style="margin: 0 auto 16px"></div>
+            Chargement des commandes...
+          </div>
+
+          <div
+            id="errorOrders"
+            style="
+              display: none;
+              padding: 40px;
+              text-align: center;
+              color: #ef4444;
+            "
+          >
+            ❌ Erreur de chargement
+          </div>
+
+          <table id="ordersTable" style="display: none">
+            <thead>
+              <tr>
+                <th>N° Commande</th>
+                <th>Date</th>
+                <th>Montant</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody">
+              <!-- Rempli dynamiquement -->
+            </tbody>
+          </table>
+
+          <div
+            id="emptyOrders"
+            style="
+              display: none;
+              padding: 40px;
+              text-align: center;
+              color: #6b7280;
+            "
+          >
+            📦 Aucune commande trouvée
+          </div>
+        </div>
+      </div>
+
+      <!-- Contenu: Nouvelle commande -->
+      <div id="newOrderTab" class="tab-content">
+        <div class="table-container">
+          <div class="table-header">
+            <h2>Créer une nouvelle commande</h2>
+          </div>
+
+          <div style="padding: 32px">
+            <form id="newOrderForm">
+              <h3 style="margin-bottom: 20px">Sélectionnez vos produits</h3>
+
+              <div
+                id="productsGrid"
+                style="
+                  display: grid;
+                  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                  gap: 20px;
+                  margin-bottom: 32px;
+                "
+              >
+                <!-- Rempli dynamiquement -->
+              </div>
+
+              <div
+                style="
+                  background: #f3f4f6;
+                  padding: 24px;
+                  border-radius: 12px;
+                  margin-bottom: 24px;
+                "
+              >
+                <h3 style="margin-bottom: 16px">Récapitulatif</h3>
+                <div id="orderSummary">
+                  <p style="color: #6b7280">Aucun produit sélectionné</p>
+                </div>
+                <div
+                  style="
+                    margin-top: 16px;
+                    padding-top: 16px;
+                    border-top: 2px solid #d1d5db;
+                  "
+                >
+                  <strong style="font-size: 1.2rem"
+                    >Total: <span id="orderTotal">0.00 €</span></strong
+                  >
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="orderDescription">Description (optionnel)</label>
+                <textarea
+                  id="orderDescription"
+                  rows="3"
+                  style="
+                    padding: 12px;
+                    border: 2px solid #e5e7eb;
+                    border-radius: 8px;
+                    font-family: inherit;
+                    width: 100%;
+                  "
+                  placeholder="Ajoutez une note à votre commande..."
+                ></textarea>
+              </div>
+
+              <div style="display: flex; gap: 12px; justify-content: flex-end">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  id="clearCartBtn"
+                >
+                  🗑️ Vider le panier
+                </button>
+                <button
+                  type="submit"
+                  class="btn btn-success"
+                  id="submitOrderBtn"
+                  disabled
+                >
+                  💳 Valider et Payer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Détails Commande -->
+    <div id="orderDetailsModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>📦 Détails de la commande</h2>
+        </div>
+        <div class="modal-body" id="orderDetailsContent">
+          <!-- Rempli dynamiquement -->
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="closeDetailsBtn">Fermer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Paiement -->
+    <div id="paymentModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>💳 Simulation de Paiement</h2>
+        </div>
+        <div class="modal-body">
+          <p style="margin-bottom: 24px; color: #6b7280">
+            Ceci est une simulation de paiement. Aucune transaction réelle ne
+            sera effectuée.
+          </p>
+
+          <div class="form-group">
+            <label>Montant à payer</label>
+            <div
+              style="font-size: 2rem; font-weight: bold; color: #667eea"
+              id="paymentAmount"
+            >
+              0.00 €
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="cardNumber">Numéro de carte</label>
+            <input
+              type="text"
+              id="cardNumber"
+              placeholder="4242 4242 4242 4242"
+              maxlength="19"
+            />
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+            <div class="form-group">
+              <label for="cardExpiry">Date d'expiration</label>
+              <input
+                type="text"
+                id="cardExpiry"
+                placeholder="MM/AA"
+                maxlength="5"
+              />
+            </div>
+            <div class="form-group">
+              <label for="cardCvv">CVV</label>
+              <input type="text" id="cardCvv" placeholder="123" maxlength="3" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="cancelPaymentBtn">
+            Annuler
+          </button>
+          <button class="btn btn-success" id="confirmPaymentBtn">
+            ✅ Confirmer le paiement
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+  </body>
+</html>
