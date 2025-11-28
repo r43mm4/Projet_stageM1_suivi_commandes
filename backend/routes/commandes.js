@@ -1,7 +1,6 @@
 /**
- * ═══════════════════════════════════════════════════════════════
  * ROUTES API - COMMANDES
- * ═══════════════════════════════════════════════════════════════
+ * FIX FORCE: Mapping manuel du ClientId dans la reponse
  */
 
 const express = require("express");
@@ -9,26 +8,17 @@ const router = express.Router();
 const { sql, poolPromise } = require("../lib/database");
 const syncService = require("../services/syncService");
 
-// ═══════════════════════════════════════════════════════════════
-// ROUTES SPÉCIFIQUES (DOIVENT ÊTRE AVANT LES ROUTES DYNAMIQUES)
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * POST /api/admin/sync - Synchronisation manuelle (Story 4.4)
- */
 router.post("/admin/sync", async (req, res) => {
   try {
-    console.log("\n📡 Endpoint /admin/sync appelé");
-
+    console.log("\nEndpoint /admin/sync appele");
     const result = await syncService.syncWithRetry(3);
-
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
       data: result,
     });
   } catch (error) {
-    console.error("❌ Erreur /admin/sync:", error.message);
+    console.error("Erreur /admin/sync:", error.message);
     res.status(500).json({
       success: false,
       timestamp: new Date().toISOString(),
@@ -37,20 +27,16 @@ router.post("/admin/sync", async (req, res) => {
   }
 });
 
-/**
- * GET /api/admin/stats - Statistiques de synchronisation
- */
 router.get("/admin/stats", (req, res) => {
   try {
     const stats = syncService.getStats();
-
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
       data: stats,
     });
   } catch (error) {
-    console.error("❌ Erreur /admin/stats:", error.message);
+    console.error("Erreur /admin/stats:", error.message);
     res.status(500).json({
       success: false,
       timestamp: new Date().toISOString(),
@@ -59,40 +45,35 @@ router.get("/admin/stats", (req, res) => {
   }
 });
 
-// ═══════════════════════════════════════════════════════════════
-// ROUTES CRUD COMMANDES
-// ═══════════════════════════════════════════════════════════════
-
 /**
- * GET /api/commandes - Récupérer toutes les commandes
+ * GET /api/commandes
+ * FIX: Mapping manuel du ClientId dans chaque enregistrement
  */
 router.get("/commandes", async (req, res) => {
   try {
-    console.log("\n📡 GET /api/commandes appelé");
+    console.log("\n========================================");
+    console.log("GET /api/commandes appele");
+    console.log("Query params:", req.query);
 
     const pool = await poolPromise;
-
-    // Paramètres de pagination
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
     const offset = (page - 1) * limit;
 
-    // Filtres
     const whereClauses = [];
     const params = [];
 
-    // Filtre par client (IMPORTANT pour l'espace client)
     if (req.query.clientId) {
+      const clientIdValue = parseInt(req.query.clientId);
+      console.log("FILTRE CLIENT:", clientIdValue);
       whereClauses.push("c.ClientId = @clientId");
       params.push({
         name: "clientId",
         type: sql.Int,
-        value: parseInt(req.query.clientId),
+        value: clientIdValue,
       });
-      console.log(`   Filtre client: ${req.query.clientId}`);
     }
 
-    // Filtre par état
     if (req.query.etat) {
       whereClauses.push("c.Etat = @etat");
       params.push({
@@ -105,49 +86,105 @@ router.get("/commandes", async (req, res) => {
     const whereClause =
       whereClauses.length > 0 ? "WHERE " + whereClauses.join(" AND ") : "";
 
-    // Requête principale
+    console.log("WHERE clause:", whereClause);
+
     const query = `
       SELECT 
         c.CommandeId,
         c.NumCommande,
+        c.ClientId,
         c.MontantTotal,
         c.Etat,
         c.Descriptions,
         c.DateCommande,
+        c.DerniereModification AS DerniereModif,
         c.DerniereSynchro,
         c.SalesforceId,
         cl.NomClient,
         cl.Email
-      FROM Commandes c
-      LEFT JOIN Clients cl ON c.ClientId = cl.ClientId
+      FROM [dbo].[Commandes] c
+      LEFT JOIN [dbo].[Clients] cl ON c.ClientId = cl.ClientId
       ${whereClause}
       ORDER BY c.DateCommande DESC
       OFFSET @offset ROWS
       FETCH NEXT @limit ROWS ONLY
     `;
 
+    console.log("Query SQL complete");
+
     const request = pool.request();
     request.input("offset", sql.Int, offset);
     request.input("limit", sql.Int, limit);
-    params.forEach((p) => request.input(p.name, p.type, p.value));
+
+    params.forEach((p) => {
+      console.log("Parametre:", p.name, "=", p.value);
+      request.input(p.name, p.type, p.value);
+    });
 
     const result = await request.query(query);
 
+    console.log("Resultat brut:");
+    console.log("  Lignes:", result.recordset.length);
+
+    if (result.recordset.length > 0) {
+      console.log("  Colonnes disponibles:", Object.keys(result.recordset[0]));
+      console.log("  Premier enregistrement BRUT:", result.recordset[0]);
+    }
+
+    // FIX CRITIQUE: Mapper manuellement le ClientId
+    const mappedData = result.recordset.map((row) => {
+      // Tenter plusieurs variations du nom de colonne
+      const clientId =
+        row.ClientId || row.clientId || row.CLIENTID || row.ClientID || null;
+
+      console.log(
+        "Mapping ligne:",
+        row.NumCommande,
+        "ClientId original:",
+        row.ClientId,
+        "Mappe vers:",
+        clientId
+      );
+
+      return {
+        CommandeId: row.CommandeId,
+        NumCommande: row.NumCommande,
+        ClientId: clientId,
+        MontantTotal: row.MontantTotal,
+        Etat: row.Etat,
+        Descriptions: row.Descriptions,
+        DateCommande: row.DateCommande,
+        DerniereModif: row.DerniereModif,
+        DerniereSynchro: row.DerniereSynchro,
+        SalesforceId: row.SalesforceId,
+        NomClient: row.NomClient,
+        Email: row.Email,
+      };
+    });
+
+    console.log("Donnees mappees:");
+    if (mappedData.length > 0) {
+      console.log("  Premiere ligne mappee:", mappedData[0]);
+      console.log(
+        "  ClientId de la premiere ligne mappee:",
+        mappedData[0].ClientId
+      );
+    }
+
     // Compter le total
-    const countQuery = `SELECT COUNT(*) AS Total FROM Commandes ${whereClause}`;
+    const countQuery = `SELECT COUNT(*) AS Total FROM [dbo].[Commandes] c ${whereClause}`;
     const countRequest = pool.request();
     params.forEach((p) => countRequest.input(p.name, p.type, p.value));
     const countResult = await countRequest.query(countQuery);
     const total = countResult.recordset[0].Total;
 
-    console.log(
-      `✅ ${result.recordset.length} commandes retournées (page ${page})`
-    );
+    console.log("Total:", total);
+    console.log("========================================\n");
 
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
-      data: result.recordset,
+      data: mappedData,
       pagination: {
         page,
         limit,
@@ -156,34 +193,30 @@ router.get("/commandes", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ Erreur GET /commandes:", error.message);
+    console.error("ERREUR GET /commandes:", error.message);
+    console.error("Stack:", error.stack);
     res.status(500).json({
       success: false,
       timestamp: new Date().toISOString(),
-      error: "Erreur lors de la récupération des commandes",
+      error: "Erreur lors de la recuperation des commandes",
     });
   }
 });
 
-/**
- * GET /api/commandes/stats - Statistiques des commandes
- */
 router.get("/commandes/stats", async (req, res) => {
   try {
-    console.log("\n📡 GET /api/commandes/stats appelé");
-
     const pool = await poolPromise;
 
     const result = await pool.request().query(`
       SELECT 
         COUNT(*) AS Total,
-        SUM(CASE WHEN Etat = 'En préparation' THEN 1 ELSE 0 END) AS EnPreparation,
-        SUM(CASE WHEN Etat = 'Expédié' THEN 1 ELSE 0 END) AS Expedie,
-        SUM(CASE WHEN Etat = 'Livré' THEN 1 ELSE 0 END) AS Livre,
-        SUM(CASE WHEN Etat = 'Annulé' THEN 1 ELSE 0 END) AS Annule,
+        SUM(CASE WHEN Etat = 'En preparation' THEN 1 ELSE 0 END) AS EnPreparation,
+        SUM(CASE WHEN Etat = 'Expedie' THEN 1 ELSE 0 END) AS Expedie,
+        SUM(CASE WHEN Etat = 'Livre' THEN 1 ELSE 0 END) AS Livre,
+        SUM(CASE WHEN Etat = 'Annule' THEN 1 ELSE 0 END) AS Annule,
         SUM(MontantTotal) AS MontantTotal,
         AVG(MontantTotal) AS MontantMoyen
-      FROM Commandes
+      FROM [dbo].[Commandes]
     `);
 
     const stats = result.recordset[0];
@@ -194,28 +227,25 @@ router.get("/commandes/stats", async (req, res) => {
       data: {
         total: stats.Total,
         parEtat: {
-          "En préparation": stats.EnPreparation,
-          Expédié: stats.Expedie,
-          Livré: stats.Livre,
-          Annulé: stats.Annule,
+          "En preparation": stats.EnPreparation,
+          Expedie: stats.Expedie,
+          Livre: stats.Livre,
+          Annule: stats.Annule,
         },
         montantTotal: stats.MontantTotal,
         montantMoyen: stats.MontantMoyen,
       },
     });
   } catch (error) {
-    console.error("❌ Erreur GET /commandes/stats:", error.message);
+    console.error("Erreur GET /commandes/stats:", error.message);
     res.status(500).json({
       success: false,
       timestamp: new Date().toISOString(),
-      error: "Erreur lors de la récupération des statistiques",
+      error: "Erreur lors de la recuperation des statistiques",
     });
   }
 });
 
-/**
- * GET /api/commandes/:id - Récupérer une commande par ID
- */
 router.get("/commandes/:id", async (req, res) => {
   try {
     const commandeId = parseInt(req.params.id);
@@ -228,8 +258,6 @@ router.get("/commandes/:id", async (req, res) => {
       });
     }
 
-    console.log(`\n📡 GET /api/commandes/${commandeId} appelé`);
-
     const pool = await poolPromise;
 
     const result = await pool.request().input("commandeId", sql.Int, commandeId)
@@ -237,18 +265,20 @@ router.get("/commandes/:id", async (req, res) => {
         SELECT 
           c.CommandeId,
           c.NumCommande,
+          c.ClientId,
           c.MontantTotal,
           c.Etat,
           c.Descriptions,
           c.DateCommande,
+          c.DerniereModification AS DerniereModif,
           c.DerniereSynchro,
           c.SalesforceId,
           cl.NomClient,
           cl.Email,
           cl.Telephone,
           cl.Adresse
-        FROM Commandes c
-        LEFT JOIN Clients cl ON c.ClientId = cl.ClientId
+        FROM [dbo].[Commandes] c
+        LEFT JOIN [dbo].[Clients] cl ON c.ClientId = cl.ClientId
         WHERE c.CommandeId = @commandeId
       `);
 
@@ -256,44 +286,54 @@ router.get("/commandes/:id", async (req, res) => {
       return res.status(404).json({
         success: false,
         timestamp: new Date().toISOString(),
-        error: "Commande non trouvée",
+        error: "Commande non trouvee",
       });
     }
 
-    console.log(`✅ Commande ${commandeId} trouvée`);
+    const row = result.recordset[0];
+    const mappedData = {
+      CommandeId: row.CommandeId,
+      NumCommande: row.NumCommande,
+      ClientId: row.ClientId || row.clientId || row.CLIENTID || null,
+      MontantTotal: row.MontantTotal,
+      Etat: row.Etat,
+      Descriptions: row.Descriptions,
+      DateCommande: row.DateCommande,
+      DerniereModif: row.DerniereModif,
+      DerniereSynchro: row.DerniereSynchro,
+      SalesforceId: row.SalesforceId,
+      NomClient: row.NomClient,
+      Email: row.Email,
+      Telephone: row.Telephone,
+      Adresse: row.Adresse,
+    };
 
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
-      data: result.recordset[0],
+      data: mappedData,
     });
   } catch (error) {
-    console.error("❌ Erreur GET /commandes/:id:", error.message);
+    console.error("Erreur GET /commandes/:id:", error.message);
     res.status(500).json({
       success: false,
       timestamp: new Date().toISOString(),
-      error: "Erreur lors de la récupération de la commande",
+      error: "Erreur lors de la recuperation de la commande",
     });
   }
 });
 
-/**
- * POST /api/commandes - Créer une nouvelle commande
- */
 router.post("/commandes", async (req, res) => {
   try {
-    console.log("\n📡 POST /api/commandes appelé");
-
     const { NumCommande, ClientId, MontantTotal, Etat, Descriptions } =
       req.body;
 
-    // Validation
     const errors = {};
-    if (!NumCommande) errors.NumCommande = "Numéro de commande requis";
+    if (!NumCommande) errors.NumCommande = "Numero de commande requis";
     if (!ClientId) errors.ClientId = "Client requis";
     if (!MontantTotal || MontantTotal <= 0)
       errors.MontantTotal = "Montant invalide";
-    if (!Etat) errors.Etat = "État requis";
+    if (!Etat) errors.Etat = "Etat requis";
 
     if (Object.keys(errors).length > 0) {
       return res.status(400).json({
@@ -312,7 +352,7 @@ router.post("/commandes", async (req, res) => {
       .input("montantTotal", sql.Decimal(10, 2), MontantTotal)
       .input("etat", sql.NVarChar(50), Etat)
       .input("descriptions", sql.NVarChar(500), Descriptions || null).query(`
-        INSERT INTO Commandes (
+        INSERT INTO [dbo].[Commandes] (
           NumCommande, ClientId, MontantTotal, Etat, Descriptions, 
           DateCommande, CreePar
         )
@@ -323,39 +363,36 @@ router.post("/commandes", async (req, res) => {
         )
       `);
 
-    console.log(`✅ Commande créée: ${NumCommande}`);
-
     res.status(201).json({
       success: true,
       timestamp: new Date().toISOString(),
       data: result.recordset[0],
     });
   } catch (error) {
-    console.error("❌ Erreur POST /commandes:", error.message);
+    console.error("Erreur POST /commandes:", error.message);
 
     if (error.number === 2627) {
       return res.status(409).json({
         success: false,
         timestamp: new Date().toISOString(),
-        error: "Ce numéro de commande existe déjà",
+        error: "Ce numero de commande existe deja",
       });
     }
 
     res.status(500).json({
       success: false,
       timestamp: new Date().toISOString(),
-      error: "Erreur lors de la création de la commande",
+      error: "Erreur lors de la creation de la commande",
     });
   }
 });
 
-/**
- * PUT /api/commandes/:id/status - Mettre à jour le statut d'une commande
- */
 router.put("/commandes/:id/status", async (req, res) => {
   try {
     const commandeId = parseInt(req.params.id);
-    const { nouveauStatut } = req.body;
+    const { newStatus, nouveauStatut } = req.body;
+
+    const statut = newStatus || nouveauStatut;
 
     if (isNaN(commandeId) || commandeId <= 0) {
       return res.status(400).json({
@@ -365,7 +402,7 @@ router.put("/commandes/:id/status", async (req, res) => {
       });
     }
 
-    if (!nouveauStatut) {
+    if (!statut) {
       return res.status(400).json({
         success: false,
         timestamp: new Date().toISOString(),
@@ -373,27 +410,22 @@ router.put("/commandes/:id/status", async (req, res) => {
       });
     }
 
-    const statutsValides = ["En préparation", "Expédié", "Livré", "Annulé"];
-    if (!statutsValides.includes(nouveauStatut)) {
+    const statutsValides = ["En preparation", "Expedie", "Livre", "Annule"];
+    if (!statutsValides.includes(statut)) {
       return res.status(400).json({
         success: false,
         timestamp: new Date().toISOString(),
-        error: `Statut invalide. Valeurs acceptées: ${statutsValides.join(
-          ", "
-        )}`,
+        error: "Statut invalide",
       });
     }
-
-    console.log(`\n📡 PUT /api/commandes/${commandeId}/status appelé`);
-    console.log(`   Nouveau statut: ${nouveauStatut}`);
 
     const pool = await poolPromise;
 
     const result = await pool
       .request()
       .input("commandeId", sql.Int, commandeId)
-      .input("nouveauStatut", sql.NVarChar(50), nouveauStatut).query(`
-        UPDATE Commandes
+      .input("nouveauStatut", sql.NVarChar(50), statut).query(`
+        UPDATE [dbo].[Commandes]
         SET 
           Etat = @nouveauStatut,
           DerniereModification = GETDATE(),
@@ -405,30 +437,25 @@ router.put("/commandes/:id/status", async (req, res) => {
       return res.status(404).json({
         success: false,
         timestamp: new Date().toISOString(),
-        error: "Commande non trouvée",
+        error: "Commande non trouvee",
       });
     }
-
-    console.log(`✅ Statut mis à jour pour commande ${commandeId}`);
 
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
-      message: "Statut mis à jour avec succès",
+      message: "Statut mis a jour avec succes",
     });
   } catch (error) {
-    console.error("❌ Erreur PUT /commandes/:id/status:", error.message);
+    console.error("Erreur PUT /commandes/:id/status:", error.message);
     res.status(500).json({
       success: false,
       timestamp: new Date().toISOString(),
-      error: "Erreur lors de la mise à jour du statut",
+      error: "Erreur lors de la mise a jour du statut",
     });
   }
 });
 
-/**
- * DELETE /api/commandes/:id - Supprimer une commande
- */
 router.delete("/commandes/:id", async (req, res) => {
   try {
     const commandeId = parseInt(req.params.id);
@@ -441,32 +468,28 @@ router.delete("/commandes/:id", async (req, res) => {
       });
     }
 
-    console.log(`\n📡 DELETE /api/commandes/${commandeId} appelé`);
-
     const pool = await poolPromise;
 
     const result = await pool
       .request()
       .input("commandeId", sql.Int, commandeId)
-      .query("DELETE FROM Commandes WHERE CommandeId = @commandeId");
+      .query("DELETE FROM [dbo].[Commandes] WHERE CommandeId = @commandeId");
 
     if (result.rowsAffected[0] === 0) {
       return res.status(404).json({
         success: false,
         timestamp: new Date().toISOString(),
-        error: "Commande non trouvée",
+        error: "Commande non trouvee",
       });
     }
-
-    console.log(`✅ Commande ${commandeId} supprimée`);
 
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
-      message: "Commande supprimée avec succès",
+      message: "Commande supprimee avec succes",
     });
   } catch (error) {
-    console.error("❌ Erreur DELETE /commandes/:id:", error.message);
+    console.error("Erreur DELETE /commandes/:id:", error.message);
     res.status(500).json({
       success: false,
       timestamp: new Date().toISOString(),

@@ -56,15 +56,15 @@
     </style>
   </head>
   <body>
-    <h1>🔍 Diagnostic de connexion</h1>
+    <h1>Diagnostic de connexion</h1>
 
     <div class="test-box">
-      <h2>📋 Informations système</h2>
+      <h2>Informations système</h2>
       <div id="systemInfo"></div>
     </div>
 
     <div class="test-box">
-      <h2>🧪 Tests de fonctionnalité</h2>
+      <h2>Tests de fonctionnalité</h2>
 
       <h3>Test 1 : SessionStorage</h3>
       <button onclick="testSessionStorage()">Tester SessionStorage</button>
@@ -88,7 +88,7 @@
     </div>
 
     <div class="test-box">
-      <h2>📁 Structure des fichiers attendue</h2>
+      <h2>Structure des fichiers attendue</h2>
       <pre>
 frontend/
 ├── login.html          ← Vous êtes ici
@@ -106,7 +106,7 @@ frontend/
     </div>
 
     <div class="test-box">
-      <h2>🔗 Liens rapides</h2>
+      <h2>Liens rapides</h2>
       <button onclick="window.location.href='login.html'">Aller à Login</button>
       <button onclick="window.location.href='client/dashboard.html'">
         Aller au Dashboard Client
@@ -123,8 +123,8 @@ frontend/
           Navigateur: navigator.userAgent,
           "URL actuelle": window.location.href,
           "SessionStorage disponible":
-            typeof Storage !== "undefined" ? "✅ Oui" : "❌ Non",
-          "JavaScript activé": "✅ Oui (sinon vous ne verriez pas ceci)",
+            typeof Storage !== "undefined" ? "Oui" : "Non",
+          "JavaScript activé": "Oui (sinon vous ne verriez pas ceci)",
         };
 
         let html = '<table style="width:100%">';
@@ -146,13 +146,13 @@ frontend/
 
           if (value === "OK") {
             result.innerHTML =
-              '<span class="success">✅ SessionStorage fonctionne correctement</span>';
+              '<span class="success">SessionStorage fonctionne correctement</span>';
           } else {
             result.innerHTML =
-              '<span class="error">❌ SessionStorage ne fonctionne pas correctement</span>';
+              '<span class="error">SessionStorage ne fonctionne pas correctement</span>';
           }
         } catch (e) {
-          result.innerHTML = `<span class="error">❌ Erreur: ${e.message}</span>`;
+          result.innerHTML = `<span class="error">Erreur: ${e.message}</span>`;
         }
       }
 
@@ -171,12 +171,12 @@ frontend/
           sessionStorage.setItem("currentUser", JSON.stringify(user));
 
           result.innerHTML = `
-                    <span class="success">✅ Session client créée avec succès</span><br>
+                    <span class="success">Session client créée avec succès</span><br>
                     <pre>${JSON.stringify(user, null, 2)}</pre>
                     <button onclick="window.location.href='client/dashboard.html'">Aller au Dashboard</button>
                 `;
         } catch (e) {
-          result.innerHTML = `<span class="error">❌ Erreur: ${e.message}</span>`;
+          result.innerHTML = `<span class="error">Erreur: ${e.message}</span>`;
         }
       }
 
@@ -195,12 +195,12 @@ frontend/
           sessionStorage.setItem("currentUser", JSON.stringify(user));
 
           result.innerHTML = `
-                    <span class="success">✅ Session admin créée avec succès</span><br>
+                    <span class="success">Session admin créée avec succès</span><br>
                     <pre>${JSON.stringify(user, null, 2)}</pre>
                     <button onclick="window.location.href='backoffice/admin.html'">Aller au Backoffice</button>
                 `;
         } catch (e) {
-          result.innerHTML = `<span class="error">❌ Erreur: ${e.message}</span>`;
+          result.innerHTML = `<span class="error">Erreur: ${e.message}</span>`;
         }
       }
 
@@ -213,7 +213,7 @@ frontend/
           if (userStr) {
             const user = JSON.parse(userStr);
             result.innerHTML = `
-                        <span class="success">✅ Session trouvée</span><br>
+                        <span class="success">Session trouvée</span><br>
                         <pre>${JSON.stringify(user, null, 2)}</pre>
                         <span class="info">Rôle: ${user.role}</span><br>
                         ${
@@ -224,10 +224,10 @@ frontend/
                     `;
           } else {
             result.innerHTML =
-              '<span class="error">❌ Aucune session active</span>';
+              '<span class="error">Aucune session active</span>';
           }
         } catch (e) {
-          result.innerHTML = `<span class="error">❌ Erreur: ${e.message}</span>`;
+          result.innerHTML = `<span class="error">Erreur: ${e.message}</span>`;
         }
       }
 
@@ -237,9 +237,9 @@ frontend/
         try {
           sessionStorage.removeItem("currentUser");
           result.innerHTML =
-            '<span class="success">✅ Session effacée avec succès</span>';
+            '<span class="success">Session effacée avec succès</span>';
         } catch (e) {
-          result.innerHTML = `<span class="error">❌ Erreur: ${e.message}</span>`;
+          result.innerHTML = `<span class="error">Erreur: ${e.message}</span>`;
         }
       }
 

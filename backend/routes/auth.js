@@ -13,7 +13,7 @@ const { sql, poolPromise } = require("../lib/database");
  */
 router.post("/login", async (req, res) => {
   try {
-    console.log("\n📡 POST /api/auth/login");
+    console.log("\n POST /api/auth/login");
 
     const { email, password, isAdmin } = req.body;
 
@@ -38,7 +38,7 @@ router.post("/login", async (req, res) => {
     const clientResult = await authenticateClient(email, password);
     return res.json(clientResult);
   } catch (error) {
-    console.error("❌ Erreur /auth/login:", error.message);
+    console.error(" Erreur /auth/login:", error.message);
     res.status(500).json({
       success: false,
       error: "Erreur serveur lors de l'authentification",
@@ -65,7 +65,7 @@ async function authenticateAdmin(email, password) {
   const admin = adminAccounts[email.toLowerCase()];
 
   if (!admin) {
-    console.log("   ❌ Admin non trouvé");
+    console.log(" Admin non trouvé");
     return {
       success: false,
       error: "Compte administrateur non trouvé",
@@ -73,14 +73,14 @@ async function authenticateAdmin(email, password) {
   }
 
   if (admin.password !== password) {
-    console.log("   ❌ Mot de passe incorrect");
+    console.log(" Mot de passe incorrect");
     return {
       success: false,
       error: "Mot de passe incorrect",
     };
   }
 
-  console.log("   ✅ Admin authentifié:", admin.name);
+  console.log(" Admin authentifié:", admin.name);
 
   return {
     success: true,
@@ -111,7 +111,7 @@ async function authenticateClient(email, password) {
       `);
 
     if (result.recordset.length === 0) {
-      console.log("   ❌ Client non trouvé");
+      console.log(" Client non trouvé");
       return {
         success: false,
         error: "Email non trouvé dans notre base de données",
@@ -126,14 +126,14 @@ async function authenticateClient(email, password) {
     const isPasswordValid = verifyPassword(password, client.MotDePasse);
 
     if (!isPasswordValid) {
-      console.log("   ❌ Mot de passe incorrect");
+      console.log(" Mot de passe incorrect");
       return {
         success: false,
         error: "Mot de passe incorrect",
       };
     }
 
-    console.log("   ✅ Client authentifié:", client.NomClient);
+    console.log(" Client authentifié:", client.NomClient);
 
     return {
       success: true,
@@ -143,7 +143,7 @@ async function authenticateClient(email, password) {
       email: client.Email,
     };
   } catch (error) {
-    console.error("   ❌ Erreur authentification client:", error.message);
+    console.error("  Erreur authentification client:", error.message);
     return {
       success: false,
       error: "Erreur lors de la vérification des identifiants",
@@ -174,7 +174,7 @@ function verifyPassword(plainPassword, hashedPassword) {
  * POST /api/auth/logout - Déconnexion
  */
 router.post("/logout", (req, res) => {
-  console.log("\n📡 POST /api/auth/logout");
+  console.log("\n POST /api/auth/logout");
 
   // En production, invalider le token JWT ici
 
@@ -197,7 +197,7 @@ router.get("/me", async (req, res) => {
       error: "Non implémenté - Utilisez sessionStorage côté client",
     });
   } catch (error) {
-    console.error("❌ Erreur /auth/me:", error.message);
+    console.error(" Erreur /auth/me:", error.message);
     res.status(500).json({
       success: false,
       error: "Erreur serveur",

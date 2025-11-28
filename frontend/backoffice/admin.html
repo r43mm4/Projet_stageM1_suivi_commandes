@@ -6,220 +6,142 @@
     <title>Administration - Portail Commandes</title>
     <link rel="stylesheet" href="admin-styles.css" />
   </head>
-  <body class="dashboard-page">
-    <!-- En-tête -->
-    <header class="dashboard-header">
-      <div class="header-content">
-        <div class="header-left">
-          <h1>⚙️ Panneau d'Administration</h1>
-          <p>Gestion des commandes et produits</p>
-        </div>
-        <div class="header-right">
-          <button class="btn btn-secondary" id="refreshBtn">
-            🔄 Actualiser
-          </button>
-          <button class="btn btn-danger" id="logoutBtn">🚪 Déconnexion</button>
-        </div>
+  <body>
+    <!-- ==================== HEADER ==================== -->
+    <header>
+      <div class="header-left">
+        <h1>Panneau d'Administration</h1>
+        <p class="subtitle">Gestion des commandes et produits</p>
+      </div>
+      <div class="header-right">
+        <button class="btn-refresh" id="refreshBtn">
+          <span class="icon"></span> Actualiser
+        </button>
+        <button class="btn-refresh" style="background: #e74c3c" id="logoutBtn">
+          <span class="icon"></span> Déconnexion
+        </button>
       </div>
     </header>
 
-    <div class="dashboard-container">
+    <!-- ==================== MAIN CONTAINER ==================== -->
+    <main>
       <!-- Statistiques globales -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <h3>Total Commandes</h3>
-          <div class="value" id="totalOrders">0</div>
+      <section class="stats-section">
+        <h2>Statistiques globales</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Commandes</div>
+            <div class="stat-value" id="totalOrders">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">En préparation</div>
+            <div class="stat-value" id="preparationOrders">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Expédiées</div>
+            <div class="stat-value" id="shippedOrders">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Chiffre d'affaires</div>
+            <div class="stat-value" id="totalRevenue">0 €</div>
+          </div>
         </div>
-        <div class="stat-card">
-          <h3>En préparation</h3>
-          <div class="value" id="preparationOrders">0</div>
+      </section>
+
+      <!-- Actions rapides -->
+      <section class="actions-section">
+        <button class="action-btn" onclick="syncNow()">
+          Synchroniser Salesforce
+        </button>
+        <button class="action-btn" onclick="exportData()">
+          Exporter les données
+        </button>
+      </section>
+
+      <!-- Filtres -->
+      <section class="filters">
+        <div class="filter-group">
+          <label for="searchInput">Recherche</label>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Numéro de commande ou client..."
+          />
         </div>
-        <div class="stat-card">
-          <h3>Expédiées</h3>
-          <div class="value" id="shippedOrders">0</div>
+        <div class="filter-group">
+          <label for="statusFilter">Filtrer par statut</label>
+          <select id="statusFilter">
+            <option value="">Tous les statuts</option>
+            <option value="En préparation">En préparation</option>
+            <option value="Expédié">Expédié</option>
+            <option value="Livré">Livré</option>
+            <option value="Annulé">Annulé</option>
+          </select>
         </div>
-        <div class="stat-card">
-          <h3>Chiffre d'affaires</h3>
-          <div class="value" id="totalRevenue">0 €</div>
-        </div>
+      </section>
+
+      <!-- Loading -->
+      <div id="loading" class="loading" style="display: none">
+        <div class="spinner"></div>
+        <p>Chargement des commandes...</p>
       </div>
 
-      <!-- Table des commandes -->
-      <div class="table-container">
-        <div class="table-header">
-          <h2>📦 Toutes les commandes</h2>
-          <div class="search-bar">
-            <input
-              type="text"
-              id="searchInput"
-              placeholder="🔍 Rechercher par numéro ou client..."
-            />
-            <select id="statusFilter">
-              <option value="">Tous les statuts</option>
-              <option value="En préparation">En préparation</option>
-              <option value="Expédié">Expédié</option>
-              <option value="Livré">Livré</option>
-              <option value="Annulé">Annulé</option>
-            </select>
+      <!-- Error -->
+      <div id="error" class="error" style="display: none"></div>
+
+      <!-- Liste des commandes -->
+      <section class="orders-section">
+        <div class="orders-header">
+          <h2>Toutes les commandes</h2>
+          <div class="stats">
+            <span class="stat-item">
+              <strong id="visibleCount">0</strong> affichées
+            </span>
           </div>
         </div>
 
-        <div
-          id="loadingOrders"
-          style="padding: 40px; text-align: center; color: #6b7280"
-        >
-          <div class="spinner" style="margin: 0 auto 16px"></div>
-          Chargement des commandes...
+        <!-- Container pour les commandes -->
+        <div id="commandesList">
+          <!-- Rempli dynamiquement par JavaScript -->
         </div>
 
+        <!-- Message si vide -->
         <div
-          id="errorOrders"
+          id="emptyMessage"
           style="
             display: none;
-            padding: 40px;
             text-align: center;
-            color: #ef4444;
+            padding: 60px;
+            color: #7f8c8d;
           "
         >
-          ❌ Erreur de chargement
-        </div>
-
-        <table id="ordersTable" style="display: none">
-          <thead>
-            <tr>
-              <th>N° Commande</th>
-              <th>Client</th>
-              <th>Date</th>
-              <th>Montant</th>
-              <th>Statut</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="ordersBody">
-            <!-- Rempli dynamiquement -->
-          </tbody>
-        </table>
-
-        <div
-          id="emptyOrders"
-          style="
-            display: none;
-            padding: 40px;
-            text-align: center;
-            color: #6b7280;
-          "
-        >
-          📦 Aucune commande trouvée
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal Modifier Statut -->
-    <div id="statusModal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>✏️ Modifier le statut de la commande</h2>
-        </div>
-        <div class="modal-body">
-          <div
+          <div style="font-size: 48px; margin-bottom: 20px">📦</div>
+          <h3>Aucune commande</h3>
+          <p>Les commandes apparaîtront ici après synchronisation</p>
+          <button
+            onclick="syncNow()"
             style="
-              margin-bottom: 24px;
-              padding: 16px;
-              background: #f3f4f6;
+              margin-top: 20px;
+              padding: 12px 24px;
+              background: var(--primary);
+              color: white;
+              border: none;
               border-radius: 8px;
+              cursor: pointer;
+              font-weight: 600;
             "
           >
-            <strong>Commande:</strong> <span id="modalOrderNumber"></span><br />
-            <strong>Client:</strong> <span id="modalClientName"></span><br />
-            <strong>Montant:</strong> <span id="modalAmount"></span>
-          </div>
-
-          <div class="form-group">
-            <label for="currentStatus">Statut actuel</label>
-            <input
-              type="text"
-              id="currentStatus"
-              readonly
-              style="background: #f3f4f6; cursor: not-allowed"
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="newStatus">Nouveau statut</label>
-            <select
-              id="newStatus"
-              style="
-                padding: 12px;
-                border: 2px solid #e5e7eb;
-                border-radius: 8px;
-                width: 100%;
-              "
-            >
-              <option value="En préparation">En préparation</option>
-              <option value="Expédié">Expédié</option>
-              <option value="Livré">Livré</option>
-              <option value="Annulé">Annulé</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="statusNote">Note (optionnel)</label>
-            <textarea
-              id="statusNote"
-              rows="3"
-              style="
-                padding: 12px;
-                border: 2px solid #e5e7eb;
-                border-radius: 8px;
-                font-family: inherit;
-                width: 100%;
-              "
-              placeholder="Ajoutez une note concernant ce changement de statut..."
-            ></textarea>
-          </div>
-
-          <div
-            style="
-              padding: 16px;
-              background: #eff6ff;
-              border-left: 4px solid #3b82f6;
-              border-radius: 8px;
-              margin-top: 16px;
-            "
-          >
-            <strong>ℹ️ Information</strong><br />
-            <small style="color: #6b7280">
-              Une notification sera automatiquement envoyée au client lors du
-              changement de statut.
-            </small>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" id="cancelStatusBtn">
-            Annuler
-          </button>
-          <button class="btn btn-success" id="saveStatusBtn">
-            ✅ Enregistrer le changement
+            Synchroniser maintenant
           </button>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
 
-    <!-- Modal Détails Commande -->
-    <div id="orderDetailsModal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>📦 Détails de la commande</h2>
-        </div>
-        <div class="modal-body" id="orderDetailsContent">
-          <!-- Rempli dynamiquement -->
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" id="closeDetailsBtn">Fermer</button>
-        </div>
-      </div>
-    </div>
+    <!-- ==================== FOOTER ==================== -->
+    <footer>
+      <p>© 2025 Projet DigiInfo - Portail de Gestion des Commandes</p>
+    </footer>
 
-    <script src="admin.js"></script>
+    <script src="app.js"></script>
   </body>
 </html>

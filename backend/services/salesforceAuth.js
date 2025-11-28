@@ -87,7 +87,7 @@ class SalesforceAuth {
    */
   async authenticate() {
     try {
-      logger.info("🔐 Tentative d'authentification Salesforce...");
+      logger.info("Tentative d'authentification Salesforce...");
 
       // Construction de la requête OAuth2
       const authUrl = `${this.loginUrl}/services/oauth2/token`;
@@ -120,7 +120,7 @@ class SalesforceAuth {
       const expirationMinutes = 110;
       this.tokenExpiresAt = Date.now() + expirationMinutes * 60 * 1000;
 
-      logger.info(`✅ Authentification réussie !`);
+      logger.info(`Authentification réussie !`);
       logger.info(`   Instance URL: ${instance_url}`);
       logger.info(`   Token expire dans ${expirationMinutes} minutes`);
 
@@ -130,7 +130,7 @@ class SalesforceAuth {
       };
     } catch (error) {
       // Gestion des erreurs détaillée
-      logger.error("❌ Échec de l'authentification Salesforce");
+      logger.error("Échec de l'authentification Salesforce");
 
       if (error.response) {
         // Erreur HTTP de Salesforce (400, 401, etc.)
@@ -145,19 +145,19 @@ class SalesforceAuth {
         // Messages d'erreur courants et leurs solutions
         if (status === 400) {
           if (data.error === "invalid_client_id") {
-            logger.error("   💡 Solution: Vérifiez SF_CLIENT_ID dans .env");
+            logger.error("   Solution: Vérifiez SF_CLIENT_ID dans .env");
           } else if (data.error === "invalid_client") {
-            logger.error("   💡 Solution: Vérifiez SF_CLIENT_SECRET dans .env");
+            logger.error("   Solution: Vérifiez SF_CLIENT_SECRET dans .env");
           } else if (data.error === "invalid_grant") {
             logger.error(
-              "   💡 Solution: Vérifiez SF_USERNAME et SF_PASSWORD (password+token)"
+              "   Solution: Vérifiez SF_USERNAME et SF_PASSWORD (password+token)"
             );
           }
         }
       } else if (error.request) {
         // Pas de réponse (timeout, réseau)
         logger.error("   Aucune réponse de Salesforce");
-        logger.error("   💡 Vérifiez votre connexion internet");
+        logger.error("   Vérifiez votre connexion internet");
       } else {
         // Autre erreur
         logger.error(`   ${error.message}`);
@@ -185,7 +185,7 @@ class SalesforceAuth {
     const isValid = Date.now() < this.tokenExpiresAt;
 
     if (!isValid) {
-      logger.warn("⚠️ Token Salesforce expiré");
+      logger.warn("Token Salesforce expiré");
     }
 
     return isValid;
@@ -251,7 +251,7 @@ class SalesforceAuth {
    * @returns {Promise} { accessToken, instanceUrl }
    */
   async refreshToken() {
-    logger.info("🔄 Rafraîchissement forcé du token...");
+    logger.info("Rafraîchissement forcé du token...");
     this.accessToken = null; // Invalider le token actuel
     this.tokenExpiresAt = null;
     return await this.authenticate();

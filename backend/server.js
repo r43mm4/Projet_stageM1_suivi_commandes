@@ -35,15 +35,15 @@ app.get("/api/health", (req, res) => {
 // Démarrer le serveur
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ Serveur démarré sur le port ${PORT}`);
-  console.log(`📍 http://localhost:${PORT}`);
-  console.log(`🔧 Environnement: ${process.env.NODE_ENV || "development"}`);
+  console.log(`Serveur démarré sur le port ${PORT}`);
+  console.log(`http://localhost:${PORT}`);
+  console.log(`Environnement: ${process.env.NODE_ENV || "development"}`);
 
   // Vérifier que les variables d'environnement sont chargées
   if (process.env.SF_CLIENT_ID) {
-    console.log("✅ Variables Salesforce chargées");
+    console.log("Variables Salesforce chargées");
   } else {
-    console.error("❌ ERREUR: Variables Salesforce NON chargées!");
+    console.error("ERREUR: Variables Salesforce NON chargées!");
     console.error("→ Vérifiez que le fichier .env existe dans backend/");
   }
 });

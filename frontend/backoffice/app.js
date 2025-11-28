@@ -1,75 +1,73 @@
 /**
- * ═══════════════════════════════════════════════════════════════
- * ADMIN DASHBOARD - GESTION COMPLÈTE
- * ═══════════════════════════════════════════════════════════════
+ * ADMIN DASHBOARD - GESTION DE TOUTES LES COMMANDES
  */
 
-// Configuration API
 const API_BASE_URL = "http://localhost:3000";
-const API_URL = `${API_BASE_URL}/api`;
+const API_URL = API_BASE_URL + "/api";
 
-console.log("📍 API URL:", API_URL);
+console.log("Admin Dashboard - API URL:", API_URL);
 
-// Variables globales
 let commandes = [];
-let stats = {};
-let autoRefreshInterval = null;
 let currentUser = null;
 
 /**
  * Initialisation
  */
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("✅ Admin dashboard initialisé");
+  console.log("Admin dashboard initialise");
 
-  // Vérifier l'authentification admin
+  // Verifier authentification admin
   currentUser = getCurrentUser();
-  if (!currentUser || currentUser.role !== "admin") {
-    console.warn("⚠️  Accès admin refusé, redirection...");
+
+  if (!currentUser) {
+    console.warn("Non authentifie, redirection login...");
     window.location.href = "../login.html";
     return;
   }
 
-  console.log("👤 Admin connecté:", currentUser.name);
+  if (currentUser.role !== "admin") {
+    console.warn("Acces admin requis, role actuel:", currentUser.role);
+    alert("Acces refuse. Vous devez etre administrateur.");
+    window.location.href = "../login.html";
+    return;
+  }
 
-  // Charger les données
+  console.log("Admin connecte:", currentUser.name);
+
+  // Charger les donnees
   loadAllData();
 
-  // Setup auto-refresh
-  setupAutoRefresh();
-
-  // Setup event listeners
+  // Setup listeners
   setupEventListeners();
 });
 
 /**
- * Charger toutes les données
+ * Charger toutes les donnees
  */
 async function loadAllData() {
   await Promise.all([fetchStats(), fetchCommandes()]);
 }
 
 /**
- * Récupérer les statistiques
+ * Recuperer les statistiques globales
  */
 async function fetchStats() {
   try {
-    console.log("📊 Chargement des statistiques...");
+    console.log("Chargement statistiques...");
 
-    const response = await fetch(`${API_URL}/commandes/stats`);
+    const response = await fetch(API_URL + "/commandes/stats");
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      throw new Error("HTTP " + response.status);
     }
 
     const data = await response.json();
-    stats = data.data;
+    console.log("Stats recues:", data.data);
 
-    console.log("✅ Stats reçues:", stats);
-    displayStats(stats);
+    displayStats(data.data);
   } catch (error) {
-    console.error("❌ Erreur fetchStats:", error);
-    showError("Impossible de charger les statistiques");
+    console.error("Erreur stats:", error);
+    // Ne pas bloquer si les stats echouent
   }
 }
 
@@ -77,149 +75,133 @@ async function fetchStats() {
  * Afficher les statistiques
  */
 function displayStats(stats) {
-  // Total commandes
-  const totalEl =
-    document.querySelector('[id*="total"]') ||
-    document.querySelector('h3:contains("Total")');
-  if (totalEl) {
-    const valueEl = totalEl.nextElementSibling || totalEl;
-    valueEl.textContent = stats.total || 0;
-  }
+  const totalEl = document.getElementById("totalOrders");
+  if (totalEl) totalEl.textContent = stats.total || 0;
 
-  // En préparation
-  const prepEl = document.querySelector('[id*="preparation"]');
-  if (prepEl) {
-    prepEl.textContent = stats.parEtat?.["En préparation"] || 0;
-  }
+  const prepEl = document.getElementById("preparationOrders");
+  if (prepEl)
+    prepEl.textContent = stats.parEtat
+      ? stats.parEtat["En preparation"] || 0
+      : 0;
 
-  // Expédiées
-  const expedEl = document.querySelector('[id*="expedie"]');
-  if (expedEl) {
-    expedEl.textContent = stats.parEtat?.["Expédié"] || 0;
-  }
+  const shipEl = document.getElementById("shippedOrders");
+  if (shipEl)
+    shipEl.textContent = stats.parEtat ? stats.parEtat["Expedie"] || 0 : 0;
 
-  // Chiffre d'affaires
-  const caEl = document.querySelector('[id*="affaires"]');
-  if (caEl) {
-    caEl.textContent = formatMontant(stats.montantTotal || 0);
-  }
+  const revenueEl = document.getElementById("totalRevenue");
+  if (revenueEl) revenueEl.textContent = formatMontant(stats.montantTotal || 0);
 
-  console.log("✅ Statistiques affichées");
+  console.log("Stats affichees");
 }
 
 /**
- * Récupérer toutes les commandes
+ * Recuperer TOUTES les commandes (pas de filtre clientId)
  */
 async function fetchCommandes() {
   try {
     showLoading(true);
+    hideError();
 
-    console.log("📦 Chargement des commandes...");
+    console.log("Chargement de TOUTES les commandes (admin)...");
 
-    const response = await fetch(`${API_URL}/commandes?limit=100`);
+    // PAS de filtre clientId pour l'admin
+    const url = API_URL + "/commandes?limit=100";
+    console.log("Requete:", url);
+
+    const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      throw new Error("HTTP " + response.status + ": " + response.statusText);
     }
 
     const data = await response.json();
-    commandes = data.data || [];
+    console.log("Reponse API:", data);
 
-    console.log("✅ Commandes reçues:", commandes.length);
+    commandes = data.data || [];
+    console.log("Total commandes chargees:", commandes.length);
+
     displayCommandes(commandes);
     showLoading(false);
   } catch (error) {
-    console.error("❌ Erreur fetchCommandes:", error);
-    showError("Impossible de charger les commandes");
+    console.error("Erreur chargement commandes:", error);
+    showError(
+      "Impossible de charger les commandes. Verifiez que le serveur est demarre."
+    );
     showLoading(false);
   }
 }
 
 /**
- * Afficher les commandes
+ * Afficher les commandes sous forme de tableau
  */
 function displayCommandes(commandesToDisplay) {
-  const container =
-    document.querySelector("#commandesList") ||
-    document.querySelector(".commandes-list") ||
-    document.querySelector("main");
+  const container = document.getElementById("commandesList");
+  const emptyMsg = document.getElementById("emptyMessage");
+  const visibleCount = document.getElementById("visibleCount");
 
   if (!container) {
-    console.error("❌ Container commandes introuvable");
+    console.error("Element #commandesList introuvable");
     return;
   }
 
-  // Effacer le contenu existant
+  console.log("Affichage de", commandesToDisplay.length, "commandes");
+
   container.innerHTML = "";
 
   if (commandesToDisplay.length === 0) {
-    container.innerHTML = `
-      <div style="text-align: center; padding: 60px 20px; color: #fff;">
-        <div style="font-size: 48px; margin-bottom: 20px;">📦</div>
-        <h3>Aucune commande</h3>
-        <p>Les commandes apparaîtront ici après synchronisation</p>
-        <button onclick="syncNow()" style="margin-top: 20px; padding: 10px 20px; background: #fff; color: #5865f2; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
-          🔄 Synchroniser maintenant
-        </button>
-      </div>
-    `;
+    if (emptyMsg) emptyMsg.style.display = "block";
+    if (visibleCount) visibleCount.textContent = "0";
     return;
   }
 
-  // Créer un tableau
+  if (emptyMsg) emptyMsg.style.display = "none";
+  if (visibleCount) visibleCount.textContent = commandesToDisplay.length;
+
+  // Creer le tableau
   const table = document.createElement("table");
-  table.style.cssText =
-    "width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden;";
+  table.className = "orders-table";
 
   table.innerHTML = `
-    <thead style="background: rgba(255,255,255,0.2);">
+    <thead>
       <tr>
-        <th style="padding: 15px; text-align: left; color: #fff;">Numéro</th>
-        <th style="padding: 15px; text-align: left; color: #fff;">Client</th>
-        <th style="padding: 15px; text-align: right; color: #fff;">Montant</th>
-        <th style="padding: 15px; text-align: center; color: #fff;">État</th>
-        <th style="padding: 15px; text-align: left; color: #fff;">Date</th>
-        <th style="padding: 15px; text-align: center; color: #fff;">Actions</th>
+        <th>Numero Commande</th>
+        <th>Client</th>
+        <th>Date</th>
+        <th>Montant</th>
+        <th>Statut</th>
+        <th>Actions</th>
       </tr>
     </thead>
-    <tbody id="commandesTableBody"></tbody>
+    <tbody></tbody>
   `;
 
-  container.appendChild(table);
-
-  const tbody = document.getElementById("commandesTableBody");
+  const tbody = table.querySelector("tbody");
 
   commandesToDisplay.forEach((cmd) => {
     const row = document.createElement("tr");
-    row.style.cssText = "border-bottom: 1px solid rgba(255,255,255,0.1);";
-    row.onmouseenter = () => (row.style.background = "rgba(255,255,255,0.05)");
-    row.onmouseleave = () => (row.style.background = "transparent");
 
     row.innerHTML = `
-      <td style="padding: 15px; color: #fff; font-weight: bold;">${escapeHtml(
-        cmd.NumCommande
-      )}</td>
-      <td style="padding: 15px; color: #fff;">${escapeHtml(
-        cmd.NomClient || "N/A"
-      )}</td>
-      <td style="padding: 15px; color: #fff; text-align: right;">${formatMontant(
-        cmd.MontantTotal
-      )}</td>
-      <td style="padding: 15px; text-align: center;">
-        <span style="padding: 5px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; ${getEtatStyle(
-          cmd.Etat
-        )}">
-          ${getEtatIcon(cmd.Etat)} ${escapeHtml(cmd.Etat)}
+      <td data-label="Numero Commande">
+        <strong>${escapeHtml(cmd.NumCommande)}</strong>
+      </td>
+      <td data-label="Client">${escapeHtml(cmd.NomClient || "N/A")}</td>
+      <td data-label="Date">${formatDate(cmd.DateCommande)}</td>
+      <td data-label="Montant">
+        <span class="amount">${formatMontant(cmd.MontantTotal)}</span>
+      </td>
+      <td data-label="Statut">
+        <span class="status status-${getStatusClass(cmd.Etat)}">
+          ${escapeHtml(cmd.Etat)}
         </span>
       </td>
-      <td style="padding: 15px; color: #fff;">${formatDate(
-        cmd.DateCommande
-      )}</td>
-      <td style="padding: 15px; text-align: center;">
-        <button onclick="viewCommande(${
+      <td data-label="Actions">
+        <button class="btn-view" onclick="viewCommande(${cmd.CommandeId})">
+          Voir
+        </button>
+        <button class="btn-edit" onclick="editCommandeStatus(${
           cmd.CommandeId
-        })" style="padding: 6px 12px; background: rgba(255,255,255,0.2); color: #fff; border: none; border-radius: 4px; cursor: pointer;">
-          👁️ Voir
+        })">
+          Modifier
         </button>
       </td>
     `;
@@ -227,106 +209,237 @@ function displayCommandes(commandesToDisplay) {
     tbody.appendChild(row);
   });
 
-  console.log("✅ Commandes affichées:", commandesToDisplay.length);
+  container.appendChild(table);
+  console.log("Tableau affiche");
 }
 
 /**
- * Synchroniser maintenant
+ * Voir details d'une commande
  */
-async function syncNow() {
+function viewCommande(id) {
+  const cmd = commandes.find((c) => c.CommandeId === id);
+  if (!cmd) {
+    alert("Commande introuvable");
+    return;
+  }
+
+  const details = `
+DETAILS COMMANDE
+========================================
+
+Numero: ${cmd.NumCommande}
+Client: ${cmd.NomClient || "N/A"}
+Email: ${cmd.Email || "N/A"}
+Montant: ${formatMontant(cmd.MontantTotal)}
+Etat: ${cmd.Etat}
+Date: ${formatDate(cmd.DateCommande)}
+
+${cmd.Descriptions ? "Description:\n" + cmd.Descriptions + "\n" : ""}
+
+Derniere modification: ${formatDateTime(cmd.DerniereModif)}
+Salesforce ID: ${cmd.SalesforceId || "N/A"}
+
+========================================
+  `;
+
+  alert(details);
+}
+
+/**
+ * Modifier le statut d'une commande
+ */
+async function editCommandeStatus(id) {
+  const cmd = commandes.find((c) => c.CommandeId === id);
+  if (!cmd) {
+    alert("Commande introuvable");
+    return;
+  }
+
+  const nouveauStatut = prompt(
+    "Nouveau statut pour commande " +
+      cmd.NumCommande +
+      " ?\n\n" +
+      "Statut actuel: " +
+      cmd.Etat +
+      "\n\n" +
+      "Entrez:\n" +
+      "1 = En preparation\n" +
+      "2 = Expedie\n" +
+      "3 = Livre\n" +
+      "4 = Annule"
+  );
+
+  if (!nouveauStatut) return;
+
+  const statutMap = {
+    1: "En preparation",
+    2: "Expedie",
+    3: "Livre",
+    4: "Annule",
+  };
+
+  const statut = statutMap[nouveauStatut];
+
+  if (!statut) {
+    alert("Choix invalide");
+    return;
+  }
+
   try {
-    console.log("🔄 Synchronisation manuelle...");
+    console.log("Modification statut commande", id, "vers", statut);
 
-    const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = "⏳ Synchronisation...";
-
-    const response = await fetch(`${API_URL}/admin/sync`, {
-      method: "POST",
+    const response = await fetch(API_URL + "/commandes/" + id + "/status", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ newStatus: statut }),
     });
 
     if (!response.ok) {
-      throw new Error("Échec de la synchronisation");
+      const error = await response.json();
+      throw new Error(error.error || "Echec mise a jour");
     }
 
-    const data = await response.json();
-    console.log("✅ Sync terminée:", data);
+    alert("Statut mis a jour avec succes");
 
-    alert(
-      `Synchronisation réussie !\n\n${data.data.inserted} insérées\n${data.data.updated} mises à jour`
-    );
-
-    // Recharger les données
+    // Recharger les donnees
     await loadAllData();
   } catch (error) {
-    console.error("❌ Erreur sync:", error);
-    alert("Erreur lors de la synchronisation");
+    console.error("Erreur modification statut:", error);
+    alert("Erreur: " + error.message);
   }
 }
 
 /**
- * Voir une commande
+ * Synchroniser Salesforce maintenant
  */
-function viewCommande(id) {
-  const cmd = commandes.find((c) => c.CommandeId === id);
-  if (!cmd) return;
+async function syncNow() {
+  if (!confirm("Lancer une synchronisation Salesforce maintenant ?")) {
+    return;
+  }
 
-  alert(
-    `Commande ${cmd.NumCommande}\n\nMontant: ${formatMontant(
-      cmd.MontantTotal
-    )}\nÉtat: ${cmd.Etat}\n\n${cmd.Descriptions || ""}`
-  );
+  try {
+    console.log("Synchronisation...");
+
+    const response = await fetch(API_URL + "/admin/sync", {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      throw new Error("Echec synchronisation");
+    }
+
+    const data = await response.json();
+    console.log("Sync terminee:", data.data);
+
+    const duration = (data.data.duration / 1000).toFixed(1);
+
+    alert(
+      "Synchronisation reussie !\n\n" +
+        "Commandes inserees: " +
+        data.data.inserted +
+        "\n" +
+        "Commandes mises a jour: " +
+        data.data.updated +
+        "\n" +
+        "Erreurs: " +
+        data.data.errors +
+        "\n" +
+        "Duree: " +
+        duration +
+        "s"
+    );
+
+    // Recharger les donnees
+    await loadAllData();
+  } catch (error) {
+    console.error("Erreur sync:", error);
+    alert("Erreur lors de la synchronisation: " + error.message);
+  }
 }
 
 /**
- * Setup auto-refresh
+ * Exporter les donnees en CSV
  */
-function setupAutoRefresh() {
-  autoRefreshInterval = setInterval(() => {
-    console.log("🔄 Auto-refresh...");
-    loadAllData();
-  }, 60000); // 1 minute
+function exportData() {
+  if (commandes.length === 0) {
+    alert("Aucune donnee a exporter");
+    return;
+  }
 
-  console.log("✅ Auto-refresh activé (60s)");
+  // Creer CSV
+  let csv = "Numero,Client,Email,Date,Montant,Etat,Description\n";
+
+  commandes.forEach((cmd) => {
+    const desc = (cmd.Descriptions || "").replace(/"/g, '""');
+    csv +=
+      '"' +
+      cmd.NumCommande +
+      '",' +
+      '"' +
+      (cmd.NomClient || "") +
+      '",' +
+      '"' +
+      (cmd.Email || "") +
+      '",' +
+      '"' +
+      formatDate(cmd.DateCommande) +
+      '",' +
+      '"' +
+      cmd.MontantTotal +
+      '",' +
+      '"' +
+      cmd.Etat +
+      '",' +
+      '"' +
+      desc +
+      '"\n';
+  });
+
+  // Telecharger
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "commandes_" + new Date().toISOString().split("T")[0] + ".csv";
+  a.click();
+  URL.revokeObjectURL(url);
+
+  console.log("Export CSV termine");
 }
 
 /**
  * Setup event listeners
  */
 function setupEventListeners() {
-  // Bouton actualiser
-  const refreshBtn =
-    document.getElementById("btnRefresh") ||
-    document.querySelector('[onclick*="refresh"]') ||
-    document.querySelector('button:contains("Actualiser")');
-
+  // Refresh
+  const refreshBtn = document.getElementById("refreshBtn");
   if (refreshBtn) {
     refreshBtn.onclick = () => {
-      console.log("🔄 Refresh manuel");
+      console.log("Refresh");
       loadAllData();
     };
   }
 
-  // Bouton déconnexion
-  const logoutBtn =
-    document.getElementById("btnLogout") ||
-    document.querySelector('[onclick*="logout"]') ||
-    document.querySelector('button:contains("Déconnexion")');
-
+  // Logout
+  const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) {
     logoutBtn.onclick = () => {
-      if (confirm("Voulez-vous vraiment vous déconnecter ?")) {
+      if (confirm("Se deconnecter ?")) {
         logout();
       }
     };
   }
 
-  // Filtre par statut
-  const statusFilter = document.querySelector("select");
+  // Filtre statut
+  const statusFilter = document.getElementById("statusFilter");
   if (statusFilter) {
     statusFilter.onchange = (e) => {
       const etat = e.target.value;
-      if (etat === "" || etat === "Tous les statuts") {
+      console.log("Filtre statut:", etat);
+
+      if (etat === "") {
         displayCommandes(commandes);
       } else {
         const filtered = commandes.filter((cmd) => cmd.Etat === etat);
@@ -336,10 +449,12 @@ function setupEventListeners() {
   }
 
   // Recherche
-  const searchInput = document.querySelector('input[type="text"]');
+  const searchInput = document.getElementById("searchInput");
   if (searchInput) {
     searchInput.oninput = (e) => {
       const term = e.target.value.toLowerCase();
+      console.log("Recherche:", term);
+
       if (term === "") {
         displayCommandes(commandes);
       } else {
@@ -355,32 +470,50 @@ function setupEventListeners() {
 }
 
 /**
- * Helpers
+ * HELPERS
  */
+
 function getCurrentUser() {
   try {
     const userStr = sessionStorage.getItem("currentUser");
     return userStr ? JSON.parse(userStr) : null;
   } catch (error) {
+    console.error("Erreur recuperation user:", error);
     return null;
   }
 }
 
 function logout() {
+  console.log("Deconnexion");
   sessionStorage.removeItem("currentUser");
-  if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-  window.location.href = "../login.html";
+  window.location.replace("../login.html");
 }
 
 function showLoading(show) {
-  const loader =
-    document.getElementById("loading") || document.querySelector(".loading");
-  if (loader) loader.style.display = show ? "flex" : "none";
+  const loader = document.getElementById("loading");
+  if (loader) {
+    loader.style.display = show ? "flex" : "none";
+  }
 }
 
 function showError(message) {
-  console.error("❌", message);
-  alert(message);
+  const errorDiv = document.getElementById("error");
+  if (errorDiv) {
+    errorDiv.textContent = message;
+    errorDiv.style.display = "block";
+    errorDiv.style.background = "#fee";
+    errorDiv.style.color = "#c00";
+    errorDiv.style.padding = "20px";
+    errorDiv.style.borderRadius = "8px";
+    errorDiv.style.margin = "20px 0";
+  }
+}
+
+function hideError() {
+  const errorDiv = document.getElementById("error");
+  if (errorDiv) {
+    errorDiv.style.display = "none";
+  }
 }
 
 function formatMontant(montant) {
@@ -399,24 +532,25 @@ function formatDate(date) {
   });
 }
 
-function getEtatStyle(etat) {
-  const styles = {
-    "En préparation": "background: #ffc107; color: #000;",
-    Expédié: "background: #17a2b8; color: #fff;",
-    Livré: "background: #28a745; color: #fff;",
-    Annulé: "background: #dc3545; color: #fff;",
-  };
-  return styles[etat] || "background: #6c757d; color: #fff;";
+function formatDateTime(date) {
+  if (!date) return "N/A";
+  return new Date(date).toLocaleString("fr-FR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-function getEtatIcon(etat) {
-  const icons = {
-    "En préparation": "⏳",
-    Expédié: "🚚",
-    Livré: "✅",
-    Annulé: "❌",
+function getStatusClass(etat) {
+  const map = {
+    "En preparation": "preparation",
+    Expedie: "expedie",
+    Livre: "livre",
+    Annule: "annule",
   };
-  return icons[etat] || "📦";
+  return map[etat] || "preparation";
 }
 
 function escapeHtml(text) {
@@ -428,5 +562,9 @@ function escapeHtml(text) {
 
 // Exposer globalement
 window.syncNow = syncNow;
+window.exportData = exportData;
 window.viewCommande = viewCommande;
+window.editCommandeStatus = editCommandeStatus;
 window.logout = logout;
+
+console.log("Admin Dashboard charge et pret");

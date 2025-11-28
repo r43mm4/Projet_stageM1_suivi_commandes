@@ -42,7 +42,7 @@ class SyncService {
 
       if (lastSync) {
         console.log(
-          `📅 Dernière synchro: ${new Date(lastSync).toLocaleString("fr-FR")}`
+          `Dernière synchro: ${new Date(lastSync).toLocaleString("fr-FR")}`
         );
         return lastSync;
       }
@@ -51,13 +51,13 @@ class SyncService {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       console.log(
-        `📅 Aucune synchro précédente, sync depuis: ${sevenDaysAgo.toLocaleString(
+        `Aucune synchro précédente, sync depuis: ${sevenDaysAgo.toLocaleString(
           "fr-FR"
         )}`
       );
       return sevenDaysAgo;
     } catch (error) {
-      console.error("❌ Erreur getLastSyncTime:", error.message);
+      console.error("Erreur getLastSyncTime:", error.message);
       // En cas d'erreur, prendre les 7 derniers jours par sécurité
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -83,7 +83,7 @@ class SyncService {
         : null;
     } catch (error) {
       console.error(
-        `❌ Erreur commandeExists pour ${salesforceId}:`,
+        `Erreur commandeExists pour ${salesforceId}:`,
         error.message
       );
       return null;
@@ -120,10 +120,10 @@ class SyncService {
           VALUES (@nomClient, @email, @motDePasse, 'System')
         `);
 
-      console.log("✅ Client par défaut créé");
+      console.log("Client par défaut créé");
       return insertResult.recordset[0].ClientId;
     } catch (error) {
-      console.error("❌ Erreur getOrCreateDefaultClient:", error.message);
+      console.error("Erreur getOrCreateDefaultClient:", error.message);
       throw error;
     }
   }
@@ -160,11 +160,11 @@ class SyncService {
           )
         `);
 
-      console.log(`   ✅ INSERT: ${sfCommande.NumCommande__c}`);
+      console.log(`   INSERT: ${sfCommande.NumCommande__c}`);
       return result.recordset[0].CommandeId;
     } catch (error) {
       console.error(
-        `   ❌ Erreur INSERT ${sfCommande.NumCommande__c}:`,
+        `   Erreur INSERT ${sfCommande.NumCommande__c}:`,
         error.message
       );
       throw error;
@@ -201,10 +201,10 @@ class SyncService {
           WHERE CommandeId = @commandeId
         `);
 
-      console.log(`   ✅ UPDATE: ${sfCommande.NumCommande__c}`);
+      console.log(`   UPDATE: ${sfCommande.NumCommande__c}`);
     } catch (error) {
       console.error(
-        `   ❌ Erreur UPDATE ${sfCommande.NumCommande__c}:`,
+        `   Erreur UPDATE ${sfCommande.NumCommande__c}:`,
         error.message
       );
       throw error;
@@ -217,7 +217,7 @@ class SyncService {
   async syncCommandes() {
     // Empêcher les syncs simultanées
     if (this.isSyncing) {
-      console.log("⚠️  Une synchronisation est déjà en cours, abandon...\n");
+      console.log("Une synchronisation est déjà en cours, abandon...\n");
       return {
         success: false,
         message: "Synchronisation déjà en cours",
@@ -239,27 +239,25 @@ class SyncService {
 
     try {
       // 1. Authentifier Salesforce
-      console.log("📋 Étape 1/4 : Authentification Salesforce");
+      console.log("Étape 1/4 : Authentification Salesforce");
       console.log("─────────────────────────────────────────────────────");
       await salesforceService.ensureAuthenticated();
 
       // 2. Obtenir la date de dernière synchro
-      console.log("\n📋 Étape 2/4 : Détection des modifications");
+      console.log("\nÉtape 2/4 : Détection des modifications");
       console.log("─────────────────────────────────────────────────────");
       const lastSync = await this.getLastSyncTime();
 
       // 3. Récupérer les commandes modifiées depuis Salesforce
-      console.log("\n📋 Étape 3/4 : Récupération depuis Salesforce");
+      console.log("\nÉtape 3/4 : Récupération depuis Salesforce");
       console.log("─────────────────────────────────────────────────────");
       const sfResult = await salesforceService.getModifiedCommandes(lastSync);
       const sfCommandes = sfResult.records;
 
-      console.log(`📦 ${sfCommandes.length} commandes à synchroniser\n`);
+      console.log(`${sfCommandes.length} commandes à synchroniser\n`);
 
       if (sfCommandes.length === 0) {
-        console.log(
-          "✅ Aucune modification détectée, synchronisation terminée\n"
-        );
+        console.log("Aucune modification détectée, synchronisation terminée\n");
         this.isSyncing = false;
         this.syncStats.totalSyncs++;
         this.syncStats.successfulSyncs++;
@@ -277,7 +275,7 @@ class SyncService {
       }
 
       // 4. Synchroniser chaque commande
-      console.log("📋 Étape 4/4 : Synchronisation vers SQL");
+      console.log("Étape 4/4 : Synchronisation vers SQL");
       console.log("─────────────────────────────────────────────────────");
 
       for (const sfCommande of sfCommandes) {
@@ -300,7 +298,7 @@ class SyncService {
             commande: sfCommande.NumCommande__c,
             error: error.message,
           });
-          console.error(`   ❌ Erreur: ${error.message}`);
+          console.error(`   Erreur: ${error.message}`);
         }
       }
 
@@ -312,10 +310,10 @@ class SyncService {
       );
       console.log("║   SYNCHRONISATION TERMINÉE                           ║");
       console.log("╚═══════════════════════════════════════════════════════╝");
-      console.log(`   ✅ Insérées: ${inserted}`);
-      console.log(`   ✅ Mises à jour: ${updated}`);
-      console.log(`   ❌ Erreurs: ${errors}`);
-      console.log(`   ⏱️  Durée: ${(duration / 1000).toFixed(2)}s\n`);
+      console.log(`   Insérées: ${inserted}`);
+      console.log(`   Mises à jour: ${updated}`);
+      console.log(`   Erreurs: ${errors}`);
+      console.log(`   Durée: ${(duration / 1000).toFixed(2)}s\n`);
 
       // Mettre à jour les stats
       this.syncStats.totalSyncs++;
@@ -333,7 +331,7 @@ class SyncService {
         errorDetails: errors > 0 ? errorDetails : null,
       };
     } catch (error) {
-      console.error("\n❌ ERREUR FATALE SYNCHRONISATION:", error.message);
+      console.error("\nERREUR FATALE SYNCHRONISATION:", error.message);
       console.error(error.stack);
 
       this.syncStats.totalSyncs++;
@@ -362,7 +360,7 @@ class SyncService {
     while (attempt < maxRetries) {
       attempt++;
 
-      console.log(`\n🔄 Tentative de synchronisation ${attempt}/${maxRetries}`);
+      console.log(`\nTentative de synchronisation ${attempt}/${maxRetries}`);
 
       try {
         const result = await this.syncCommandes();
@@ -374,13 +372,13 @@ class SyncService {
         lastError = result.error;
       } catch (error) {
         lastError = error.message;
-        console.error(`❌ Tentative ${attempt} échouée:`, error.message);
+        console.error(`Tentative ${attempt} échouée:`, error.message);
       }
 
       // Attendre avant de réessayer (exponential backoff)
       if (attempt < maxRetries) {
         const delay = Math.pow(3, attempt) * 1000; // 3s, 9s, 27s
-        console.log(`⏳ Attente de ${delay / 1000}s avant retry...\n`);
+        console.log(`Attente de ${delay / 1000}s avant retry...\n`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }

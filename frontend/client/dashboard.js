@@ -1,484 +1,438 @@
 /**
- * ═══════════════════════════════════════════════════════════════
- * DASHBOARD CLIENT - GESTION DES COMMANDES
- * ═══════════════════════════════════════════════════════════════
+ * CLIENT DASHBOARD - MES COMMANDES UNIQUEMENT
+ * VERSION DEBUG RENFORCEE
  */
 
-// Configuration API
 const API_BASE_URL = "http://localhost:3000";
-const API_URL = `${API_BASE_URL}/api/commandes`;
+const API_URL = API_BASE_URL + "/api";
 
-console.log("📍 API URL:", API_URL);
+console.log("==============================================");
+console.log("CLIENT DASHBOARD - DEMARRAGE");
+console.log("API URL:", API_URL);
+console.log("==============================================");
 
-// Variables globales
-let commandes = [];
-let autoRefreshInterval = null;
+let mesCommandes = [];
 let currentUser = null;
 
-/**
- * Initialisation au chargement de la page
- */
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("✅ Dashboard initialisé");
+  console.log("\n[INIT] Page chargee");
 
-  // Vérifier l'authentification
   currentUser = getCurrentUser();
+  console.log("[INIT] User:", currentUser);
+
   if (!currentUser) {
-    console.warn("⚠️  Utilisateur non connecté, redirection...");
+    alert("Vous devez etre connecte");
     window.location.href = "../login.html";
     return;
   }
 
-  console.log("👤 Utilisateur connecté:", currentUser);
+  if (currentUser.role !== "client") {
+    alert("Acces refuse. Page reservee aux clients.");
+    window.location.href = "../login.html";
+    return;
+  }
 
-  // Afficher le nom du client dans le header
-  updateUserInfo();
+  if (!currentUser.clientId) {
+    alert("ClientId manquant. Reconnectez-vous.");
+    logout();
+    return;
+  }
 
-  // Charger les commandes
-  fetchCommandes();
+  console.log("[INIT] Client authentifie:", {
+    name: currentUser.name,
+    email: currentUser.email,
+    clientId: currentUser.clientId,
+    clientIdType: typeof currentUser.clientId,
+  });
 
-  // Setup auto-refresh
-  setupAutoRefresh();
-
-  // Setup event listeners
+  updateWelcomeMessage();
+  fetchMesCommandes();
   setupEventListeners();
+
+  console.log("[INIT] Initialisation terminee\n");
 });
 
-/**
- * Mettre à jour les informations utilisateur dans l'interface
- */
-function updateUserInfo() {
-  // Nom du client dans le header
+function updateWelcomeMessage() {
   const clientNameEl = document.getElementById("clientName");
-  if (clientNameEl && currentUser) {
+  if (clientNameEl) {
     clientNameEl.textContent = currentUser.name || currentUser.email;
   }
-
-  // Message de bienvenue
-  const welcomeEl = document.querySelector(".welcome-text");
-  if (welcomeEl && currentUser) {
-    welcomeEl.innerHTML = `Bienvenue, <strong>${
-      currentUser.name || currentUser.email
-    }</strong>`;
-  }
 }
 
-/**
- * Récupérer l'utilisateur connecté
- */
-function getCurrentUser() {
-  try {
-    const userStr = sessionStorage.getItem("currentUser");
-    return userStr ? JSON.parse(userStr) : null;
-  } catch (error) {
-    console.error("❌ Erreur getCurrentUser:", error);
-    return null;
-  }
-}
+async function fetchMesCommandes() {
+  console.log("\n======================================");
+  console.log("[API] DEBUT CHARGEMENT");
+  console.log("======================================");
 
-/**
- * Récupérer les commandes depuis l'API
- */
-async function fetchCommandes() {
   try {
     showLoading(true);
     hideError();
 
-    console.log("📡 Chargement des commandes...");
+    const clientId = currentUser.clientId;
+    console.log("[API] ClientId cible:", clientId);
+    console.log("[API] Type ClientId:", typeof clientId);
 
-    // Construire l'URL avec le filtre client si nécessaire
-    let url = API_URL;
-    if (currentUser && currentUser.clientId) {
-      url += `?clientId=${currentUser.clientId}`;
-    }
+    const url = API_URL + "/commandes?clientId=" + clientId + "&limit=100";
+    console.log("[API] URL:", url);
 
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error("HTTP " + response.status);
     }
 
     const data = await response.json();
-    console.log("✅ Données reçues:", data);
+    let allCommandes = data.data || [];
 
-    commandes = data.data || [];
+    console.log("[API] Reponse recue:", allCommandes.length, "commandes");
 
-    displayCommandes(commandes);
-    updateStats(commandes);
+    // DEBUG: Afficher TOUTES les commandes avec leur ClientId
+    console.log("\n[DEBUG] ANALYSE DE TOUTES LES COMMANDES:");
+    console.log("========================================");
+    allCommandes.forEach((cmd, index) => {
+      console.log(
+        index + 1 + ". " + cmd.NumCommande + " => ClientId:",
+        cmd.ClientId,
+        "(type:",
+        typeof cmd.ClientId + ")"
+      );
+    });
+    console.log("========================================\n");
+
+    // FILTRAGE avec comparaison stricte ET souple
+    console.log(
+      "[FILTRAGE] ClientId recherche:",
+      clientId,
+      "(type:",
+      typeof clientId + ")"
+    );
+
+    mesCommandes = allCommandes.filter((cmd) => {
+      // Comparaison stricte
+      const matchStrict = cmd.ClientId === clientId;
+      // Comparaison souple (conversion en nombres)
+      const matchLoose = parseInt(cmd.ClientId) === parseInt(clientId);
+      // Comparaison string
+      const matchString = String(cmd.ClientId) === String(clientId);
+
+      const match = matchStrict || matchLoose || matchString;
+
+      if (!match) {
+        console.log(
+          "[FILTRAGE] EXCLUE:",
+          cmd.NumCommande,
+          "ClientId:",
+          cmd.ClientId,
+          "(type:",
+          typeof cmd.ClientId + ")",
+          "vs recherche:",
+          clientId,
+          "(type:",
+          typeof clientId + ")"
+        );
+      } else {
+        console.log(
+          "[FILTRAGE] GARDE:",
+          cmd.NumCommande,
+          "ClientId:",
+          cmd.ClientId
+        );
+      }
+
+      return match;
+    });
+
+    console.log("\n[FILTRAGE] RESULTAT:");
+    console.log("  Avant filtrage:", allCommandes.length);
+    console.log("  Apres filtrage:", mesCommandes.length);
+    console.log(
+      "  Commandes gardees:",
+      mesCommandes.map((c) => c.NumCommande).join(", ")
+    );
+
+    if (mesCommandes.length > 0) {
+      console.log("\n[DEBUG] Premiere commande gardee:");
+      console.log(mesCommandes[0]);
+    }
+
+    displayCommandes(mesCommandes);
+    updateStats(mesCommandes);
+
     showLoading(false);
+    console.log("\n[API] CHARGEMENT TERMINE");
+    console.log("======================================\n");
   } catch (error) {
-    console.error("❌ Erreur fetchCommandes:", error);
-    showError(`Impossible de charger les commandes: ${error.message}`);
+    console.error("\n[API] ERREUR:", error);
+    showError("Impossible de charger vos commandes: " + error.message);
     showLoading(false);
   }
 }
 
-/**
- * Afficher les commandes dans la liste
- */
 function displayCommandes(commandesToDisplay) {
-  const listContainer = document.getElementById("commandesList");
+  console.log("\n[UI] AFFICHAGE:", commandesToDisplay.length, "commandes");
 
-  if (!listContainer) {
-    console.error("❌ Element #commandesList introuvable");
+  const container = document.getElementById("commandesList");
+  const emptyMsg = document.getElementById("emptyMessage");
+
+  if (!container) {
+    console.error("[UI] ERREUR: commandesList introuvable");
     return;
   }
 
-  listContainer.innerHTML = "";
+  container.innerHTML = "";
 
   if (commandesToDisplay.length === 0) {
-    listContainer.innerHTML = `
-      <div style="text-align: center; padding: 60px 20px; color: #666;">
-        <div style="font-size: 48px; margin-bottom: 20px;">📦</div>
-        <h3>Aucune commande trouvée</h3>
-        <p>Vos commandes apparaîtront ici une fois synchronisées</p>
-      </div>
-    `;
+    console.log("[UI] Aucune commande a afficher");
+    if (emptyMsg) emptyMsg.style.display = "block";
     return;
   }
 
-  commandesToDisplay.forEach((commande) => {
-    const card = createCommandeCard(commande);
-    listContainer.appendChild(card);
+  if (emptyMsg) emptyMsg.style.display = "none";
+
+  commandesToDisplay.forEach((cmd) => {
+    const card = createCommandeCard(cmd);
+    container.appendChild(card);
   });
+
+  console.log("[UI] Cartes ajoutees au DOM\n");
 }
 
-/**
- * Créer une carte de commande
- */
-function createCommandeCard(commande) {
+function createCommandeCard(cmd) {
   const card = document.createElement("div");
   card.className = "commande-card";
-  card.onclick = () => viewCommande(commande.CommandeId);
 
-  const etatClass = getEtatClass(commande.Etat);
-  const etatIcon = getEtatIcon(commande.Etat);
+  const statusClass = getStatusClass(cmd.Etat);
+  const statusIcon = getStatusIcon(cmd.Etat);
 
   card.innerHTML = `
-    <div class="commande-header">
+    <div class="card-header">
       <div>
-        <h3>${escapeHtml(commande.NumCommande)}</h3>
-        <p class="commande-date">${formatDate(commande.DateCommande)}</p>
+        <span class="order-number">${escapeHtml(cmd.NumCommande)}</span>
+        <span class="order-date">${formatDate(cmd.DateCommande)}</span>
       </div>
-      <span class="badge badge-${etatClass}">
-        ${etatIcon} ${escapeHtml(commande.Etat)}
+      <span class="status status-${statusClass}">
+        ${statusIcon} ${escapeHtml(cmd.Etat)}
       </span>
     </div>
-    <div class="commande-body">
-      <div class="commande-info">
-        <span class="info-label">Montant:</span>
-        <span class="info-value">${formatMontant(commande.MontantTotal)}</span>
+
+    <div class="card-body">
+      <div class="info-row">
+        <span class="label">Montant</span>
+        <span class="value amount">${formatMontant(cmd.MontantTotal)}</span>
       </div>
+
       ${
-        commande.Descriptions
+        cmd.Descriptions
           ? `
-        <div class="commande-description">
-          <span class="info-label">Description:</span>
-          <p>${escapeHtml(commande.Descriptions)}</p>
-        </div>
+      <div class="info-row">
+        <span class="label">Description</span>
+        <span class="value">${escapeHtml(cmd.Descriptions)}</span>
+      </div>
       `
           : ""
       }
+
+      <div class="info-row">
+        <span class="label">Derniere MAJ</span>
+        <span class="value">${formatDateTime(cmd.DerniereModif)}</span>
+      </div>
     </div>
-    <div class="commande-footer">
-      <button class="btn-details" onclick="event.stopPropagation(); viewCommande(${
-        commande.CommandeId
+
+    <div class="card-footer">
+      <button class="btn-details" onclick="showCommandeDetails(${
+        cmd.CommandeId
       })">
-        Voir détails
+        Voir details
       </button>
+      ${
+        cmd.Etat === "En preparation"
+          ? `
+        <button class="btn-cancel" onclick="cancelCommande(${cmd.CommandeId})">
+          Annuler
+        </button>
+      `
+          : ""
+      }
     </div>
   `;
 
   return card;
 }
 
-/**
- * Voir le détail d'une commande
- */
-async function viewCommande(commandeId) {
-  try {
-    console.log("📋 Chargement détails commande:", commandeId);
-
-    const response = await fetch(`${API_URL}/${commandeId}`);
-
-    if (!response.ok) {
-      throw new Error("Commande non trouvée");
-    }
-
-    const data = await response.json();
-    const commande = data.data;
-
-    showCommandeDetails(commande);
-  } catch (error) {
-    console.error("❌ Erreur viewCommande:", error);
-    alert("Impossible de charger les détails de la commande");
-  }
-}
-
-/**
- * Afficher les détails d'une commande dans le modal
- */
-function showCommandeDetails(commande) {
-  const modal = document.getElementById("detailsModal");
-  const modalBody = document.getElementById("modalBody");
-
-  if (!modal || !modalBody) {
-    console.error("❌ Modal introuvable");
+function showCommandeDetails(id) {
+  const cmd = mesCommandes.find((c) => c.CommandeId === id);
+  if (!cmd) {
+    alert("Commande introuvable");
     return;
   }
 
-  const etatClass = getEtatClass(commande.Etat);
-  const etatIcon = getEtatIcon(commande.Etat);
+  const details = `
+DETAILS DE LA COMMANDE
+========================================
 
-  modalBody.innerHTML = `
-    <div class="detail-section">
-      <h3>Informations générales</h3>
-      <div class="detail-grid">
-        <div class="detail-item">
-          <span class="detail-label">Numéro de commande:</span>
-          <span class="detail-value">${escapeHtml(commande.NumCommande)}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">Statut:</span>
-          <span class="badge badge-${etatClass}">${etatIcon} ${escapeHtml(
-    commande.Etat
-  )}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">Montant total:</span>
-          <span class="detail-value">${formatMontant(
-            commande.MontantTotal
-          )}</span>
-        </div>
-        <div class="detail-item">
-          <span class="detail-label">Date de commande:</span>
-          <span class="detail-value">${formatDate(commande.DateCommande)}</span>
-        </div>
-      </div>
-    </div>
-    
-    ${
-      commande.Descriptions
-        ? `
-      <div class="detail-section">
-        <h3>Description</h3>
-        <p>${escapeHtml(commande.Descriptions)}</p>
-      </div>
-    `
-        : ""
-    }
-    
-    ${
-      commande.NomClient
-        ? `
-      <div class="detail-section">
-        <h3>Informations client</h3>
-        <div class="detail-grid">
-          <div class="detail-item">
-            <span class="detail-label">Nom:</span>
-            <span class="detail-value">${escapeHtml(commande.NomClient)}</span>
-          </div>
-          ${
-            commande.Email
-              ? `
-            <div class="detail-item">
-              <span class="detail-label">Email:</span>
-              <span class="detail-value">${escapeHtml(commande.Email)}</span>
-            </div>
-          `
-              : ""
-          }
-        </div>
-      </div>
-    `
-        : ""
-    }
-    
-    ${
-      commande.DerniereSynchro
-        ? `
-      <div class="detail-section">
-        <p style="font-size: 12px; color: #999;">
-          Dernière synchronisation: ${formatDate(commande.DerniereSynchro)}
-        </p>
-      </div>
-    `
-        : ""
-    }
+Numero: ${cmd.NumCommande}
+Date: ${formatDate(cmd.DateCommande)}
+Montant: ${formatMontant(cmd.MontantTotal)}
+Statut: ${cmd.Etat}
+
+${cmd.Descriptions ? "Description:\n" + cmd.Descriptions + "\n" : ""}
+
+Derniere modification:
+${formatDateTime(cmd.DerniereModif)}
+
+========================================
   `;
 
-  modal.style.display = "flex";
+  alert(details);
 }
 
-/**
- * Fermer le modal
- */
-function closeDetailsModal() {
-  const modal = document.getElementById("detailsModal");
-  if (modal) {
-    modal.style.display = "none";
+async function cancelCommande(id) {
+  const cmd = mesCommandes.find((c) => c.CommandeId === id);
+
+  if (!cmd) {
+    alert("Commande introuvable");
+    return;
   }
-}
 
-/**
- * Mettre à jour les statistiques
- */
-function updateStats(commandes) {
-  console.log("📊 Mise à jour des stats:", commandes.length, "commandes");
+  if (cmd.Etat !== "En preparation") {
+    alert("Seules les commandes en preparation peuvent etre annulees");
+    return;
+  }
 
-  const stats = {
-    total: commandes.length,
-    enCours: 0,
-    livrees: 0,
-    montantTotal: 0,
-  };
+  if (!confirm("Annuler la commande " + cmd.NumCommande + " ?")) {
+    return;
+  }
 
-  commandes.forEach((cmd) => {
-    const etat = cmd.Etat || "";
-    const montant = parseFloat(cmd.MontantTotal) || 0;
+  try {
+    const response = await fetch(API_URL + "/commandes/" + id + "/status", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ newStatus: "Annule" }),
+    });
 
-    stats.montantTotal += montant;
-
-    // Compter par état
-    if (etat === "En préparation" || etat === "Expédié") {
-      stats.enCours++;
-    } else if (etat === "Livré") {
-      stats.livrees++;
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Echec annulation");
     }
-  });
 
-  console.log("📊 Stats calculées:", stats);
-
-  // Mettre à jour le DOM
-  const totalEl =
-    document.getElementById("statTotal") ||
-    document.querySelector('[id*="total"]');
-  const coursEl =
-    document.getElementById("statPreparation") ||
-    document.querySelector('[id*="cours"]');
-  const livreEl =
-    document.getElementById("statLivre") ||
-    document.querySelector('[id*="livre"]');
-  const montantEl =
-    document.getElementById("statMontant") ||
-    document.querySelector('[id*="montant"]');
-
-  if (totalEl) {
-    totalEl.textContent = stats.total;
-    console.log("  ✅ Total mis à jour:", stats.total);
-  } else {
-    console.warn("  ⚠️  Element statTotal introuvable");
-  }
-
-  if (coursEl) {
-    coursEl.textContent = stats.enCours;
-    console.log("  ✅ En cours mis à jour:", stats.enCours);
-  }
-
-  if (livreEl) {
-    livreEl.textContent = stats.livrees;
-    console.log("  ✅ Livrées mis à jour:", stats.livrees);
-  }
-
-  if (montantEl) {
-    montantEl.textContent = formatMontant(stats.montantTotal);
-    console.log("  ✅ Montant mis à jour:", stats.montantTotal);
+    alert("Commande annulee avec succes");
+    await fetchMesCommandes();
+  } catch (error) {
+    console.error("[ACTION] Erreur:", error);
+    alert("Erreur: " + error.message);
   }
 }
 
-/**
- * Setup auto-refresh
- */
-function setupAutoRefresh() {
-  const refreshInterval = 30000; // 30 secondes
+function updateStats(commandes) {
+  const total = commandes.length;
+  const enCours = commandes.filter(
+    (c) => c.Etat === "En preparation" || c.Etat === "Expedie"
+  ).length;
+  const livrees = commandes.filter((c) => c.Etat === "Livre").length;
+  const montantTotal = commandes.reduce(
+    (sum, c) => sum + (c.MontantTotal || 0),
+    0
+  );
 
-  autoRefreshInterval = setInterval(() => {
-    console.log("🔄 Auto-refresh...");
-    fetchCommandes();
-  }, refreshInterval);
+  const totalEl = document.getElementById("totalCommandes");
+  const enCoursEl = document.getElementById("commandesEnCours");
+  const livreesEl = document.getElementById("commandesLivrees");
+  const montantEl = document.getElementById("montantTotal");
 
-  console.log(`✅ Auto-refresh activé (${refreshInterval / 1000}s)`);
+  if (totalEl) totalEl.textContent = total;
+  if (enCoursEl) enCoursEl.textContent = enCours;
+  if (livreesEl) livreesEl.textContent = livrees;
+  if (montantEl) montantEl.textContent = formatMontant(montantTotal);
 }
 
-/**
- * Setup event listeners
- */
 function setupEventListeners() {
-  // Bouton refresh
-  const refreshBtn = document.getElementById("btnRefresh");
+  const refreshBtn = document.getElementById("refreshBtn");
   if (refreshBtn) {
-    refreshBtn.addEventListener("click", () => {
-      console.log("🔄 Refresh manuel");
-      fetchCommandes();
-    });
+    refreshBtn.onclick = () => fetchMesCommandes();
   }
 
-  // Bouton déconnexion
-  const logoutBtn = document.getElementById("btnLogout");
+  const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) {
-    logoutBtn.addEventListener("click", () => {
-      if (confirm("Voulez-vous vraiment vous déconnecter ?")) {
-        logout();
-      }
-    });
+    logoutBtn.onclick = () => {
+      if (confirm("Se deconnecter ?")) logout();
+    };
   }
 
-  // Filtre par statut
   const statusFilter = document.getElementById("statusFilter");
   if (statusFilter) {
-    statusFilter.addEventListener("change", (e) => {
+    statusFilter.onchange = (e) => {
       const etat = e.target.value;
       if (etat === "") {
-        displayCommandes(commandes);
+        displayCommandes(mesCommandes);
       } else {
-        const filtered = commandes.filter((cmd) => cmd.Etat === etat);
+        const filtered = mesCommandes.filter((cmd) => cmd.Etat === etat);
         displayCommandes(filtered);
       }
-    });
+    };
   }
 
-  // Recherche
   const searchInput = document.getElementById("searchInput");
   if (searchInput) {
-    searchInput.addEventListener("input", (e) => {
+    searchInput.oninput = (e) => {
       const term = e.target.value.toLowerCase();
       if (term === "") {
-        displayCommandes(commandes);
+        displayCommandes(mesCommandes);
       } else {
-        const filtered = commandes.filter((cmd) => {
+        const filtered = mesCommandes.filter((cmd) => {
           const num = (cmd.NumCommande || "").toLowerCase();
           const desc = (cmd.Descriptions || "").toLowerCase();
           return num.includes(term) || desc.includes(term);
         });
         displayCommandes(filtered);
       }
-    });
+    };
+  }
+
+  const tabMesCommandes = document.getElementById("tabMesCommandes");
+  const tabNouvelleCommande = document.getElementById("tabNouvelleCommande");
+  const viewMesCommandes = document.getElementById("mesCommandesView");
+  const viewNouvelleCommande = document.getElementById("nouvelleCommandeView");
+
+  if (tabMesCommandes) {
+    tabMesCommandes.onclick = () => {
+      tabMesCommandes.classList.add("active");
+      if (tabNouvelleCommande) tabNouvelleCommande.classList.remove("active");
+      if (viewMesCommandes) viewMesCommandes.style.display = "block";
+      if (viewNouvelleCommande) viewNouvelleCommande.style.display = "none";
+    };
+  }
+
+  if (tabNouvelleCommande) {
+    tabNouvelleCommande.onclick = () => {
+      tabNouvelleCommande.classList.add("active");
+      if (tabMesCommandes) tabMesCommandes.classList.remove("active");
+      if (viewNouvelleCommande) viewNouvelleCommande.style.display = "block";
+      if (viewMesCommandes) viewMesCommandes.style.display = "none";
+    };
   }
 }
 
-/**
- * Déconnexion
- */
+function getCurrentUser() {
+  try {
+    const userStr = sessionStorage.getItem("currentUser");
+    if (!userStr) return null;
+    return JSON.parse(userStr);
+  } catch (error) {
+    console.error("[SESSION] Erreur:", error);
+    return null;
+  }
+}
+
 function logout() {
-  console.log("👋 Déconnexion");
   sessionStorage.removeItem("currentUser");
-
-  // Arrêter l'auto-refresh
-  if (autoRefreshInterval) {
-    clearInterval(autoRefreshInterval);
-  }
-
-  window.location.href = "../login.html";
+  window.location.replace("../login.html");
 }
 
-/**
- * UI Helpers
- */
 function showLoading(show) {
   const loader = document.getElementById("loading");
-  if (loader) {
-    loader.style.display = show ? "flex" : "none";
-  }
+  if (loader) loader.style.display = show ? "flex" : "none";
 }
 
 function showError(message) {
@@ -487,24 +441,18 @@ function showError(message) {
     errorDiv.textContent = message;
     errorDiv.style.display = "block";
   }
-  console.error("❌", message);
 }
 
 function hideError() {
   const errorDiv = document.getElementById("error");
-  if (errorDiv) {
-    errorDiv.style.display = "none";
-  }
+  if (errorDiv) errorDiv.style.display = "none";
 }
 
-/**
- * Formatters
- */
 function formatMontant(montant) {
   return new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "EUR",
-  }).format(montant);
+  }).format(montant || 0);
 }
 
 function formatDate(date) {
@@ -513,29 +461,32 @@ function formatDate(date) {
     year: "numeric",
     month: "long",
     day: "numeric",
+  });
+}
+
+function formatDateTime(date) {
+  if (!date) return "N/A";
+  return new Date(date).toLocaleString("fr-FR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
-function getEtatClass(etat) {
-  const classes = {
-    "En préparation": "warning",
-    Expédié: "info",
-    Livré: "success",
-    Annulé: "danger",
+function getStatusClass(etat) {
+  const map = {
+    "En preparation": "preparation",
+    Expedie: "expedie",
+    Livre: "livre",
+    Annule: "annule",
   };
-  return classes[etat] || "secondary";
+  return map[etat] || "preparation";
 }
 
-function getEtatIcon(etat) {
-  const icons = {
-    "En préparation": "⏳",
-    Expédié: "🚚",
-    Livré: "✅",
-    Annulé: "❌",
-  };
-  return icons[etat] || "📦";
+function getStatusIcon(etat) {
+  return "";
 }
 
 function escapeHtml(text) {
@@ -545,7 +496,8 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Exposer les fonctions globalement
-window.viewCommande = viewCommande;
-window.closeDetailsModal = closeDetailsModal;
+window.showCommandeDetails = showCommandeDetails;
+window.cancelCommande = cancelCommande;
 window.logout = logout;
+
+console.log("CLIENT DASHBOARD - Pret\n");
