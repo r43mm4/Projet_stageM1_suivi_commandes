@@ -45,7 +45,7 @@
 
 **Base de Données**
 - Azure SQL Database
-- 3 tables: Orders, Clients, Notifications
+- 5 tables: Commandes, Clients, Notifications, Produits, DetailCommandes
 
 **Intégration**
 - Salesforce REST API
